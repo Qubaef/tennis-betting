@@ -31,7 +31,6 @@ class MatchData:
         self.player2Id: str = ''
         self.player2Name: str = ''
         self.setsNum: int = 0
-        # self.
 
 
 fields: List[str] = ['start_date', 'end_date', 'location', 'court_surface', 'prize_money', 'currency', 'year', \
@@ -48,6 +47,18 @@ fields: List[str] = ['start_date', 'end_date', 'location', 'court_surface', 'pri
 
 def load_org_data(csv_path: str):
     matches = pd.read_csv(csv_path, sep=',')
+
+    # Sort by date
+    matches = matches.sort_values(by=['start_date'])
+    matches.to_csv(paths.CLEAN_DATASET_PATH, index=False)
+
+    # Create a list of tables, each containing matches of a single player (by player_id)
+    players = matches['player_id'].unique()
+    players_matches = []
+    for player in tqdm(players):
+        player_matches = matches[matches['player_id'] == player]
+        players_matches.append(player_matches)
+
     return matches
 
 
