@@ -7,8 +7,11 @@ rootpath = f'{filepath}/..'
 
 ORG_DATASET_ZIP_PATH: str = f'{rootpath}/tennisDatasetOrg.zip'
 ORG_DATASET_PATH: str = f'{rootpath}/data/org'
+ORG_DATASET_MATCHES_CSV_PATH: str = f'{ORG_DATASET_PATH}/all_matches.csv'
 
 OWN_DATASET_PATH: str = f'{rootpath}/data/own'
 OWN_TRAIN_DATASET_PATH: str = f'{OWN_DATASET_PATH}/train'
 OWN_TEST_DATASET_PATH: str = f'{OWN_DATASET_PATH}/test'
 OWN_VAL_DATASET_PATH: str = f'{OWN_DATASET_PATH}/val'
+
+CLEAN_DATASET_PATH: str = f'{rootpath}/clean_dataset.csv'
