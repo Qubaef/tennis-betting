@@ -17,7 +17,16 @@ class Model:
 
 
 @dataclass
+class Training:
+    gpu: int
+    epochs: int
+    batch_size: int
+    num_workers: int
+    seed: int
+
+
+@dataclass
 class Config:
     dataset: Dataset = field(default_factory=Dataset)
     model: Model = field(default_factory=Model)
-
+    training: Training = field(default_factory=Training)

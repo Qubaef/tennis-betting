@@ -2,5 +2,6 @@ defaults:
   - _self_
   - dataset: dataset
   - model: model
+  - training: training
 
 root_path: None
