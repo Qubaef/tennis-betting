@@ -1,21 +1,17 @@
-import json
 import os
 import shutil
-import math
 from tqdm import tqdm
 from typing import List, Dict
 
 import pandas as pd
-import numpy as np
 
-import src.utils as utils
-import src.paths as paths
+from data_generation.src import utils, paths
 
 RECENT_MATCHES_COUNT = 7
 H2H_MATCHES_COUNT = 3
 
 
-# Sample data:
+# Sample data_generation:
 # start_date, end_date,   location, court_surface,prize_money,currency,year, player_id,     player_name, opponent_id,   opponent_name, tournament,        round,                num_sets,sets_won,games_won,games_against,tiebreaks_won,tiebreaks_total,serve_rating,aces,double_faults,first_serve_made,first_serve_attempted,first_serve_points_made,first_serve_points_attempted,second_serve_points_made,second_serve_points_attempted,break_points_saved,break_points_against,service_games_won,return_rating,first_serve_return_points_made,first_serve_return_points_attempted,second_serve_return_points_made,second_serve_return_points_attempted,break_points_made,break_points_attempted,return_games_played,service_points_won,service_points_attempted,return_points_won,return_points_attempted,total_points_won,total_points,duration,player_victory,retirement,seed,won_first_set,doubles,masters,round_num,nation
 # 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, adrian-partl,  A. Partl,    andrej-martin, A. Martin,     kosice_challenger, 2nd Round Qualifying, 2,       0,       3,        12,           0,            0,              149,         0,   5,            27,              44,                   12,                     27,                          4,                       17,                           1,                 7,                   8,                198,          8,                             30,8,14,1,1,7,16,44,16,44,32,88,01:02:00,f,f,,f,f,100,1,Slovakia
 # 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, andrej-martin, A. Martin,   adrian-partl,  A. Partl,      kosice_challenger, 2nd Round Qualifying, 2,       2,       12,       3,            0,            0,              268,         0,   1,            30,              44,                   22,                     30,                          6,                       14,                           0,                 1,                   7,                293,          15,                            27,13,17,6,7,8,28,44,28,44,56,88,01:02:00,t,f,8,t,f,100,1,Slovakia
@@ -235,7 +231,7 @@ def generate_own_data():
 
     MAX_ITERS: int = 100
 
-    # Take match to collect data for
+    # Take match to collect data_generation for
     for index, match_bets in tqdm(bets.iterrows(), total=bets.shape[0]):
         if MAX_ITERS > 0:
             MAX_ITERS -= 1
@@ -275,7 +271,7 @@ def generate_own_data():
         player1_stats = get_player_stats(player1_matches_before, match_bets['team2'])
         player2_stats = get_player_stats(player2_matches_before, match_bets['team1'])
 
-        #### Fill the match data
+        #### Fill the match data_generation
         # Team 1 perspective
         parsed_matches.append(MatchData())
         parsed_match: MatchData = parsed_matches[-1]
@@ -305,7 +301,7 @@ def generate_own_data():
 
 def clean_data():
     """
-    Func to filter original dataset and keep only relevant data, from which the proper custom features can be extracted
+    Func to filter original dataset and keep only relevant data_generation, from which the proper custom features can be extracted
     into own dataset.
     Org dataset from: https://www.kaggle.com/datasets/hakeem/atp-and-wta-tennis-data
     Paths from paths.py are used in this function.
@@ -332,7 +328,7 @@ def clean_data():
     matches = matches[matches['serve_rating'].notnull()]
     matches = matches[matches['duration'].notnull()]
 
-    # Match with betting data (match is identified by start_date, player_id, opponent_id)
+    # Match with betting data_generation (match is identified by start_date, player_id, opponent_id)
     # Marge all bet datasets (they have the same columns)
     bets = pd.concat([bets1, bets2, bets3])
     bets = bets.drop_duplicates(subset=['start_date', 'team1', 'team2'], keep='first')
@@ -361,7 +357,7 @@ def clean_data():
 
     # Zip the cleaned datasets
     utils.zip_files([paths.ORG_CLEAN_STATS_DATASET_PATH, paths.ORG_CLEAN_BETS_DATASET_PATH],
-        paths.ORG_CLEAN_DATASET_ZIP_PATH)
+                    paths.ORG_CLEAN_DATASET_ZIP_PATH)
 
     # Delete the unzipped datasets
     os.remove(paths.ORG_CLEAN_STATS_DATASET_PATH)
@@ -412,7 +408,7 @@ def generate_own_dataset():
     # Unzip org clean dataset
     utils.unzip(paths.ORG_CLEAN_DATASET_ZIP_PATH, paths.ORG_CLEAN_DATASET_DIR)
 
-    # TMP: Copy org dataset to own dataset - to be replaced with proper data generation
+    # TMP: Copy org dataset to own dataset - to be replaced with proper data_generation generation
     shutil.copytree(paths.ORG_CLEAN_DATASET_DIR, paths.OWN_DATASET_DIR)
 
     # Generate own dataset

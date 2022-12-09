@@ -1,0 +1,3 @@
+dataset_path: "${root_path}\\data\\own"
+metadata_path: "${dataset.dataset_path}\\metadata.csv"
+data_path: "${dataset.dataset_path}\\data"
