@@ -1,5 +1,4 @@
 import json
-# import jsonpickle
 import os
 import shutil
 import math
@@ -7,6 +6,7 @@ from tqdm import tqdm
 from typing import List, Dict
 
 import pandas as pd
+import numpy as np
 
 import src.utils as utils
 import src.paths as paths
@@ -15,18 +15,27 @@ RECENT_MATCHES_COUNT = 7
 H2H_MATCHES_COUNT = 3
 
 
+# Sample data:
+# start_date, end_date,   location, court_surface,prize_money,currency,year, player_id,     player_name, opponent_id,   opponent_name, tournament,        round,                num_sets,sets_won,games_won,games_against,tiebreaks_won,tiebreaks_total,serve_rating,aces,double_faults,first_serve_made,first_serve_attempted,first_serve_points_made,first_serve_points_attempted,second_serve_points_made,second_serve_points_attempted,break_points_saved,break_points_against,service_games_won,return_rating,first_serve_return_points_made,first_serve_return_points_attempted,second_serve_return_points_made,second_serve_return_points_attempted,break_points_made,break_points_attempted,return_games_played,service_points_won,service_points_attempted,return_points_won,return_points_attempted,total_points_won,total_points,duration,player_victory,retirement,seed,won_first_set,doubles,masters,round_num,nation
+# 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, adrian-partl,  A. Partl,    andrej-martin, A. Martin,     kosice_challenger, 2nd Round Qualifying, 2,       0,       3,        12,           0,            0,              149,         0,   5,            27,              44,                   12,                     27,                          4,                       17,                           1,                 7,                   8,                198,          8,                             30,8,14,1,1,7,16,44,16,44,32,88,01:02:00,f,f,,f,f,100,1,Slovakia
+# 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, andrej-martin, A. Martin,   adrian-partl,  A. Partl,      kosice_challenger, 2nd Round Qualifying, 2,       2,       12,       3,            0,            0,              268,         0,   1,            30,              44,                   22,                     30,                          6,                       14,                           0,                 1,                   7,                293,          15,                            27,13,17,6,7,8,28,44,28,44,56,88,01:02:00,t,f,8,t,f,100,1,Slovakia
+
 class MatchConditions:
     def __init__(self):
         self.tournamentId: str = ''
         self.tournamentCourtSurface: str = ''
-        self.tournamentPrizeMoney: float = 0
+        self.tournamentReputation: int = 0
         self.tournamentRound: int = 0
 
     def from_row(self, row: pd.Series):
         self.tournamentId = row['tournament']
         self.tournamentCourtSurface = row['court_surface']
-        self.tournamentPrizeMoney = row['prize_money']
-        self.tournamentRound = row['round_num']
+
+        # WA: Set convert types because of pandas stupid bullshit
+        self.tournamentReputation = utils.base_type(row['masters'])
+
+        # Rounds are numbered from -2 to 7, where 7 is final - normalize to 0-9, where 0 is final
+        self.tournamentRound = 7 - utils.base_type(row['round_num'])
 
 
 class GameStats:
@@ -136,12 +145,8 @@ class GameStats:
         self.totalPoints = table['total_points'].mean()
         self.wonFirstSet = len(table[table['won_first_set'] == 't']) / len(table)
 
-class MatchStats:
 
-    # Sample data:
-    # start_date, end_date,   location, court_surface,prize_money,currency,year, player_id,     player_name, opponent_id,   opponent_name, tournament,        round,                num_sets,sets_won,games_won,games_against,tiebreaks_won,tiebreaks_total,serve_rating,aces,double_faults,first_serve_made,first_serve_attempted,first_serve_points_made,first_serve_points_attempted,second_serve_points_made,second_serve_points_attempted,break_points_saved,break_points_against,service_games_won,return_rating,first_serve_return_points_made,first_serve_return_points_attempted,second_serve_return_points_made,second_serve_return_points_attempted,break_points_made,break_points_attempted,return_games_played,service_points_won,service_points_attempted,return_points_won,return_points_attempted,total_points_won,total_points,duration,player_victory,retirement,seed,won_first_set,doubles,masters,round_num,nation
-    # 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, adrian-partl,  A. Partl,    andrej-martin, A. Martin,     kosice_challenger, 2nd Round Qualifying, 2,       0,       3,        12,           0,            0,              149,         0,   5,            27,              44,                   12,                     27,                          4,                       17,                           1,                 7,                   8,                198,          8,                             30,8,14,1,1,7,16,44,16,44,32,88,01:02:00,f,f,,f,f,100,1,Slovakia
-    # 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, andrej-martin, A. Martin,   adrian-partl,  A. Partl,      kosice_challenger, 2nd Round Qualifying, 2,       2,       12,       3,            0,            0,              268,         0,   1,            30,              44,                   22,                     30,                          6,                       14,                           0,                 1,                   7,                293,          15,                            27,13,17,6,7,8,28,44,28,44,56,88,01:02:00,t,f,8,t,f,100,1,Slovakia
+class MatchStats:
     def __init__(self):
         self.matchConditions: MatchConditions = MatchConditions()
         self.duration: int = 0
@@ -165,6 +170,8 @@ class PlayerStats:
         self.h2hWins: int = 0
         self.h2hStory: List[MatchStats] = []
 
+        self.odds: float = 0.0
+
 
 class MatchData:
     def __init__(self):
@@ -183,6 +190,7 @@ def get_player_stats(player_match_history: pd.DataFrame, versus_player_id: str) 
 
     # Get RECENT_MATCHES_COUNT last matches from history
     player_matches_before: pd.DataFrame = player_match_history.tail(RECENT_MATCHES_COUNT)
+    player_matches_before.sort_values(by=['start_date'], inplace=True)
 
     for _, row in player_matches_before.iterrows():
         player_stats.playerMatchStory.append(MatchStats())
@@ -192,25 +200,28 @@ def get_player_stats(player_match_history: pd.DataFrame, versus_player_id: str) 
     player_stats.aggregatedStats.aggregate_from_table(player_match_history)
 
     # Get h2h matches
-    h2h_matches_player: pd.DataFrame = player_match_history[(player_match_history['opponent_id'] == versus_player_id)]
+    h2h_matches: pd.DataFrame = player_match_history[(player_match_history['opponent_id'] == versus_player_id)]
+    h2h_matches = h2h_matches.sort_values(by=['start_date'])
 
-    # Get number of wins for each player
-    player_stats.h2hWins = h2h_matches_player[h2h_matches_player['player_victory'] == 't'].shape[0]
+    # Get number of wins in h2h matches
+    player_stats.h2hWins = h2h_matches[h2h_matches['player_victory'] == 't'].shape[0]
 
     # Get H2H_MATCHES_COUNT last matches between the two players
-    for _, row in h2h_matches_player.tail(H2H_MATCHES_COUNT).iterrows():
+    for _, row in h2h_matches.tail(H2H_MATCHES_COUNT).iterrows():
         player_stats.h2hStory.append(MatchStats())
         player_stats.h2hStory[-1].from_row(row)
 
     return player_stats
 
 
-def load_org_data(csv_path: str):
-    matches = pd.read_csv(csv_path, sep=',')
+def generate_own_data():
+    matches = pd.read_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, sep=',')
+    bets = pd.read_csv(paths.ORG_CLEAN_BETS_DATASET_PATH, sep=',')
 
     # Sort by date
     matches = matches.sort_values(by=['start_date'])
-    matches.to_csv(paths.CLEAN_DATASET_PATH, index=False)
+    bets = bets.sort_values(by=['start_date'])
+    # matches.to_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, index=False)
 
     # Create a list of tables, each containing matches of a single player (by player_id)
     players = matches['player_id'].unique()
@@ -219,62 +230,71 @@ def load_org_data(csv_path: str):
         player_matches = matches[matches['player_id'] == player]
         players_matches[player] = player_matches
 
-    # For each match, collect last n matches of the player and last n matches of the opponent (to date)
+    # For each match from bets, collect features and pack them up into a MatchData object
     parsed_matches: List[MatchData] = []
 
     MAX_ITERS: int = 100
 
     # Take match to collect data for
-    for index, match in tqdm(matches.iterrows(), total=matches.shape[0]):
-        #### Parse player
-        player_matches: pd.DataFrame = players_matches[match.player_id]
-
-        # Find the match in the player's matches (identify by index)
-        player_match_pos: int = player_matches.index.get_loc(index)
-
-        # Get all matches before the match in question
-        player_matches_before: pd.DataFrame = player_matches.iloc[:player_match_pos]
-
-        # Generate player stats from matches played before
-        player_stats: PlayerStats = get_player_stats(player_matches_before, match.opponent_id)
-
-        #### Parse opponent
-        opponent_matches: pd.DataFrame = players_matches[match.opponent_id]
-        # Find the match in the opponent's matches
-        # (identify by start_date of the tournament and player_id and opponent_id, which are inverted)
-        opponent_match = opponent_matches.index[
-            (opponent_matches['start_date'] == match.start_date) &
-            (opponent_matches['player_id'] == match.opponent_id) &
-            (opponent_matches['opponent_id'] == match.player_id)]
-
-        if len(opponent_match) > 0:
-            opponent_match_index = opponent_match[0]
+    for index, match_bets in tqdm(bets.iterrows(), total=bets.shape[0]):
+        if MAX_ITERS > 0:
+            MAX_ITERS -= 1
         else:
-            print('No match found for opponent. Skipping...')
+            break
+
+        ### Find the stats of the match
+        # Find the match in the player stats
+        player1_matches: pd.DataFrame = players_matches[match_bets['team1']]
+        player2_matches: pd.DataFrame = players_matches[match_bets['team2']]
+
+        # Find the match in the player stats
+        player1_match_id = player1_matches.index[
+            (player1_matches['start_date'] == match_bets['start_date']) &
+            (player1_matches['player_id'] == match_bets['team1']) &
+            (player1_matches['opponent_id'] == match_bets['team2'])]
+
+        # If the match is not found, skip
+        if len(player1_match_id) == 0:
             continue
 
-        # Find the match in the opponent's matches (identify by index)
-        opponent_match_pos: int = opponent_matches.index.get_loc(opponent_match_index)
+        player2_match_id = player2_matches.index[
+            (player2_matches['start_date'] == match_bets['start_date']) &
+            (player2_matches['player_id'] == match_bets['team2']) &
+            (player2_matches['opponent_id'] == match_bets['team1'])]
 
-        # Get all matches before the match in question
-        opponent_matches_before: pd.DataFrame = opponent_matches.iloc[:opponent_match_pos]
+        if len(player2_match_id) == 0:
+            continue
 
-        # Generate opponent stats from matches played before
-        opponent_stats: PlayerStats = get_player_stats(opponent_matches_before, match.player_id)
+        player1_match = player1_matches.loc[player1_match_id[0]]
+        player2_match = player2_matches.loc[player2_match_id[0]]
+
+        player1_matches_before = player1_matches.loc[:player1_match_id[0]]
+        player2_matches_before = player2_matches.loc[:player2_match_id[0]]
+
+        # Generate player stats from match history
+        player1_stats = get_player_stats(player1_matches_before, match_bets['team2'])
+        player2_stats = get_player_stats(player2_matches_before, match_bets['team1'])
 
         #### Fill the match data
+        # Team 1 perspective
         parsed_matches.append(MatchData())
         parsed_match: MatchData = parsed_matches[-1]
 
-        parsed_match.matchConditions.from_row(match)
+        parsed_match.matchConditions.from_row(player1_match)
+        parsed_match.player1Stats = player1_stats
+        parsed_match.player2Stats = player2_stats
+        parsed_match.player1Stats.odds = match_bets['odds1']
+        parsed_match.player2Stats.odds = match_bets['odds2']
 
-        parsed_match.player1Stats = player_stats
-        parsed_match.player2Stats = opponent_stats
+        # Team 2 perspective
+        parsed_matches.append(MatchData())
+        parsed_match: MatchData = parsed_matches[-1]
 
-        # if MAX_ITERS > 0:
-        #     MAX_ITERS -= 1
-        # else:
-        #     break
+        parsed_match.matchConditions.from_row(player2_match)
+        parsed_match.player1Stats = player2_stats
+        parsed_match.player2Stats = player1_stats
+        parsed_match.player1Stats.odds = match_bets['odds2']
+        parsed_match.player2Stats.odds = match_bets['odds1']
 
     # Serialize parsed matches to json
     # with open(paths.OWN_FULL_DATASET_PATH, 'w') as outfile:
@@ -283,15 +303,26 @@ def load_org_data(csv_path: str):
     return matches
 
 
-def clean_dataset(matches_csv_path: str, target_matches_csv_path: str):
-    matches = pd.read_csv(matches_csv_path, sep=',')
+def clean_data():
+    """
+    Func to filter original dataset and keep only relevant data, from which the proper custom features can be extracted
+    into own dataset.
+    Org dataset from: https://www.kaggle.com/datasets/hakeem/atp-and-wta-tennis-data
+    Paths from paths.py are used in this function.
+    :return:
+    """
+    matches = pd.read_csv(paths.ORG_DATASET_MATCHES_CSV_PATH, sep=',')
+    bets1 = pd.read_csv(paths.ORG_DATASET_BETS1_CSV_PATH, sep=',')
+    bets2 = pd.read_csv(paths.ORG_DATASET_BETS2_CSV_PATH, sep=',')
+    bets3 = pd.read_csv(paths.ORG_DATASET_BETS3_CSV_PATH, sep=',')
 
-    # Iterate over all matches and remove all matches that not match the criteria:
-    # - retirement = 'f'
-    # - prize_money = is not nan
+    # Iterate over all matches and remove all matches that don't match the following criteria:
+    # - doesn't contain retirement (retirement == 'f')
+    # - prize_money is not nan
     # - any of the stats is not nan (generalized to: serve_rating is not nan)
-    # - all doubles matches (doubles is 'f')
-    # - duration is not nanf
+    # - is not a double match (doubles == 'f')
+    # - duration is not nan
+    # - match is in at least one of the bet datasets
 
     # Filter out all stats
     # matches = matches[matches['player_id'] == 'rafael-nadal']
@@ -301,41 +332,93 @@ def clean_dataset(matches_csv_path: str, target_matches_csv_path: str):
     matches = matches[matches['serve_rating'].notnull()]
     matches = matches[matches['duration'].notnull()]
 
-    # Save the cleaned dataset
-    matches.to_csv(target_matches_csv_path, index=False)
+    # Match with betting data (match is identified by start_date, player_id, opponent_id)
+    # Marge all bet datasets (they have the same columns)
+    bets = pd.concat([bets1, bets2, bets3])
+    bets = bets.drop_duplicates(subset=['start_date', 'team1', 'team2'], keep='first')
+
+    # Leave only following columns: start_date,team1,team2,odds1,odds2
+    bets = bets[['start_date', 'team1', 'team2', 'odds1', 'odds2']]
+
+    # Appends bets copy at the end of bets with flipped teams and odds
+    bets_flipped = bets.copy()
+    bets_flipped['team1'] = bets['team2']
+    bets_flipped['team2'] = bets['team1']
+    bets_flipped['odds1'] = bets['odds2']
+    bets_flipped['odds2'] = bets['odds1']
+    bets = pd.concat([bets, bets_flipped])
+
+    bets.sort_values(by=['start_date', 'team1', 'team2'])
+
+    # Merge matches with bets by (start_date, player_id, opponent_id) with (start_date, team1, team2)
+    # Join only the columns: odds1,odds2
+    # matches = matches.merge(bets, how='inner', left_on=['start_date', 'player_id', 'opponent_id'],
+    #     right_on=['start_date', 'team1', 'team2'])
+
+    # Save the cleaned datasets
+    matches.to_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, index=False)
+    bets.to_csv(paths.ORG_CLEAN_BETS_DATASET_PATH, index=False)
+
+    # Zip the cleaned datasets
+    utils.zip_files([paths.ORG_CLEAN_STATS_DATASET_PATH, paths.ORG_CLEAN_BETS_DATASET_PATH],
+        paths.ORG_CLEAN_DATASET_ZIP_PATH)
+
+    # Delete the unzipped datasets
+    os.remove(paths.ORG_CLEAN_STATS_DATASET_PATH)
+    os.remove(paths.ORG_CLEAN_BETS_DATASET_PATH)
 
 
-def generate_dataset():
+def generate_clean_org_dataset():
     # Check if org zip dataset exists
     if not os.path.exists(paths.ORG_DATASET_ZIP_PATH):
-        assert False, f'Org zip file not found at {paths.ORG_DATASET_ZIP_PATH}'
+        assert False, f'Org zip file not found at {os.path.normpath(paths.ORG_DATASET_ZIP_PATH)}'
     else:
-        print(f'Org zip file found at {paths.ORG_DATASET_ZIP_PATH}')
+        print(f'Org zip file found at {os.path.normpath(paths.ORG_DATASET_ZIP_PATH)}')
 
     # Check if the datasets already exist and notify the user
     # Don't delete them every time to save SSD read/write cycles
-    if os.path.exists(paths.ORG_DATASET_PATH):
-        shutil.rmtree(paths.ORG_DATASET_PATH)
-        # assert False, f'Org dataset folder already exists at {paths.ORG_DATASET_PATH}.' \
+    if os.path.exists(paths.ORG_DATASET_DIR):
+        shutil.rmtree(paths.ORG_DATASET_DIR)
+        # assert False, f'Org dataset folder already exists at {os.path.normpath(paths.ORG_DATASET_DIR)}.' \
         #               f' If you want to regenerate the dataset, please remove the folder manually.'
 
-    if os.path.exists(paths.OWN_DATASET_DIR):
-        shutil.rmtree(paths.OWN_DATASET_DIR)
-        # assert False, f'Own dataset folder already exists at {paths.OWN_DATASET_PATH}.' \
-        #               f' If you want to regenerate the dataset, please remove the folder manually.'
+    if os.path.exists(paths.ORG_CLEAN_DATASET_ZIP_PATH):
+        os.remove(paths.ORG_CLEAN_DATASET_ZIP_PATH)
 
     # Unzip org dataset
-    utils.unzip(paths.ORG_DATASET_ZIP_PATH, paths.ORG_DATASET_PATH)
-
-    # TMP: Copy org dataset to own dataset - to be replaced with proper data generation
-    shutil.copytree(paths.ORG_DATASET_PATH, paths.OWN_DATASET_DIR)
+    utils.unzip(paths.ORG_DATASET_ZIP_PATH, paths.ORG_DATASET_DIR)
 
     # Clean the dataset
-    # clean_dataset(paths.ORG_DATASET_MATCHES_CSV_PATH, paths.CLEAN_DATASET_PATH)
+    clean_data()
 
-    # Load org dataset
-    matches = load_org_data(paths.ORG_DATASET_MATCHES_CSV_PATH)
+
+def generate_own_dataset():
+    # Check if org clean zip dataset exists
+    if not os.path.exists(paths.ORG_CLEAN_DATASET_ZIP_PATH):
+        assert False, f'Org clean zip file not found at {os.path.normpath(paths.ORG_CLEAN_DATASET_ZIP_PATH)}'
+    else:
+        print(f'Org clean zip file found at {os.path.normpath(paths.ORG_CLEAN_DATASET_ZIP_PATH)}')
+
+    # Check if the datasets already exist and notify the user
+    # Don't delete them every time to save SSD read/write cycles
+    if os.path.exists(paths.OWN_DATASET_DIR):
+        shutil.rmtree(paths.OWN_DATASET_DIR)
+        # assert False, f'Own dataset folder already exists at {os.path.normpath(paths.OWN_DATASET_PATH)}.' \
+        #               f' If you want to regenerate the dataset, please remove the folder manually.'
+
+    if os.path.exists(paths.ORG_CLEAN_DATASET_DIR):
+        shutil.rmtree(paths.ORG_CLEAN_DATASET_DIR)
+
+    # Unzip org clean dataset
+    utils.unzip(paths.ORG_CLEAN_DATASET_ZIP_PATH, paths.ORG_CLEAN_DATASET_DIR)
+
+    # TMP: Copy org dataset to own dataset - to be replaced with proper data generation
+    shutil.copytree(paths.ORG_CLEAN_DATASET_DIR, paths.OWN_DATASET_DIR)
+
+    # Generate own dataset
+    generate_own_data()
 
 
 if __name__ == '__main__':
-    generate_dataset()
+    # generate_clean_org_dataset()
+    generate_own_dataset()
