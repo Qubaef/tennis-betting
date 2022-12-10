@@ -5,7 +5,6 @@ from typing import Dict, Any, Union
 
 import torch
 import torch.utils.data
-import omegaconf
 from omegaconf import OmegaConf
 from enum import Enum
 import wandb

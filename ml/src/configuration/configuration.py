@@ -1,9 +1,7 @@
 import os
 from dataclasses import dataclass, field
-from threading import Lock
 from typing import Optional
 
-import omegaconf
 import wandb
 from omegaconf import SI, OmegaConf
 
