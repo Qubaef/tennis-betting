@@ -18,7 +18,7 @@ ORG_CLEAN_STATS_DATASET_PATH: str = f'{ORG_CLEAN_DATASET_DIR}/clean_stats_datase
 ORG_CLEAN_BETS_DATASET_PATH: str = f'{ORG_CLEAN_DATASET_DIR}/clean_bets_dataset.csv'
 
 OWN_DATASET_DIR: str = f'{rootpath}/data/own'
-OWN_FULL_DATASET_PATH: str = f'{rootpath}/data/own/data.json'
+OWN_FULL_DATASET_PATH: str = f'{rootpath}/data/own/data.csv'
 OWN_TRAIN_DATASET_PATH: str = f'{OWN_DATASET_DIR}/train'
 OWN_TEST_DATASET_PATH: str = f'{OWN_DATASET_DIR}/test'
 OWN_VAL_DATASET_PATH: str = f'{OWN_DATASET_DIR}/val'

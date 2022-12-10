@@ -1,6 +1,9 @@
 import os
 import zipfile
+
+import pandas as pd
 import numpy as np
+
 from typing import List
 
 
@@ -20,6 +23,10 @@ def duration_to_minutes(duration: str):
     # Convert duration to minutes (eg. '01:02:00' -> 62)
     duration = duration.split(':')
     return int(duration[0]) * 60 + int(duration[1])
+
+
+def date_to_timestamp(date: str):
+    return float(pd.to_datetime(date).timestamp() / pd.Timestamp.max.timestamp())
 
 
 def base_type(val):

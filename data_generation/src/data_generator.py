@@ -1,7 +1,7 @@
 import os
 import shutil
 from tqdm import tqdm
-from typing import List, Dict
+from typing import List, Dict, Any
 
 import pandas as pd
 
@@ -10,28 +10,72 @@ from data_generation.src import utils, paths
 RECENT_MATCHES_COUNT = 7
 H2H_MATCHES_COUNT = 3
 
-
 # Sample data:
 # start_date, end_date,   location, court_surface,prize_money,currency,year, player_id,     player_name, opponent_id,   opponent_name, tournament,        round,                num_sets,sets_won,games_won,games_against,tiebreaks_won,tiebreaks_total,serve_rating,aces,double_faults,first_serve_made,first_serve_attempted,first_serve_points_made,first_serve_points_attempted,second_serve_points_made,second_serve_points_attempted,break_points_saved,break_points_against,service_games_won,return_rating,first_serve_return_points_made,first_serve_return_points_attempted,second_serve_return_points_made,second_serve_return_points_attempted,break_points_made,break_points_attempted,return_games_played,service_points_won,service_points_attempted,return_points_won,return_points_attempted,total_points_won,total_points,duration,player_victory,retirement,seed,won_first_set,doubles,masters,round_num,nation
 # 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, adrian-partl,  A. Partl,    andrej-martin, A. Martin,     kosice_challenger, 2nd Round Qualifying, 2,       0,       3,        12,           0,            0,              149,         0,   5,            27,              44,                   12,                     27,                          4,                       17,                           1,                 7,                   8,                198,          8,                             30,8,14,1,1,7,16,44,16,44,32,88,01:02:00,f,f,,f,f,100,1,Slovakia
 # 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, andrej-martin, A. Martin,   adrian-partl,  A. Partl,      kosice_challenger, 2nd Round Qualifying, 2,       2,       12,       3,            0,            0,              268,         0,   1,            30,              44,                   22,                     30,                          6,                       14,                           0,                 1,                   7,                293,          15,                            27,13,17,6,7,8,28,44,28,44,56,88,01:02:00,t,f,8,t,f,100,1,Slovakia
 
+courtSurfaces: Dict[str, int] = {}
+tournamentIds: Dict[str, int] = {}
+
+
+def courtSurface_to_float(surface: str) -> float:
+    if surface not in courtSurfaces:
+        courtSurfaces[surface] = len(courtSurfaces)
+
+    return courtSurfaces[surface]
+
+
+def tournamentId_to_float(tournamentId: str) -> float:
+    if tournamentId not in tournamentIds:
+        tournamentIds[tournamentId] = len(tournamentIds)
+
+    return tournamentIds[tournamentId]
+
+
+def tournamentStart_to_float(start_date: str) -> float:
+    return utils.date_to_timestamp(start_date)
+
+
 class MatchConditions:
     def __init__(self):
-        self.tournamentId: str = ''
-        self.tournamentCourtSurface: str = ''
-        self.tournamentReputation: int = 0
-        self.tournamentRound: int = 0
+        self.tournamentStart: float = 0
+        self.tournamentId: float = 0
+        self.tournamentCourtSurface: float = 0
+        self.tournamentReputation: float = 0
+        self.tournamentRound: float = 0
 
     def from_row(self, row: pd.Series):
-        self.tournamentId = row['tournament']
-        self.tournamentCourtSurface = row['court_surface']
+        self.tournamentStart = tournamentStart_to_float(row['start_date'])
+        self.tournamentId = tournamentId_to_float(row['tournament'])
+        self.tournamentCourtSurface = courtSurface_to_float(row['court_surface'])
 
         # WA: Set convert types because of pandas stupid bullshit
-        self.tournamentReputation = utils.base_type(row['masters'])
+        self.tournamentReputation = float(utils.base_type(row['masters']))
 
         # Rounds are numbered from -2 to 7, where 7 is final - normalize to 0-9, where 0 is final
-        self.tournamentRound = 7 - utils.base_type(row['round_num'])
+        self.tournamentRound = float(7 - utils.base_type(row['round_num']))
+
+    @staticmethod
+    def to_csv_columns(prefix: str = ''):
+        columns: List[str] = [
+            f"{prefix}tournamentStart",
+            f"{prefix}tournamentId",
+            f"{prefix}tournamentCourtSurface",
+            f"{prefix}tournamentReputation",
+            f"{prefix}tournamentRound"
+        ]
+
+        return columns
+
+    def to_csv_row(self):
+        return [
+            self.tournamentStart,
+            self.tournamentId,
+            self.tournamentCourtSurface,
+            self.tournamentReputation,
+            self.tournamentRound
+        ]
 
 
 class GameStats:
@@ -68,7 +112,7 @@ class GameStats:
         self.returnPointsAttempted: float = 0
         self.totalPointsWon: float = 0
         self.totalPoints: float = 0
-        self.wonFirstSet: bool = False
+        self.wonFirstSet: float = 0
 
     def from_row(self, row: pd.Series):
         self.setsWon = row['sets_won']
@@ -103,7 +147,7 @@ class GameStats:
         self.returnPointsAttempted = row['return_points_attempted']
         self.totalPointsWon = row['total_points_won']
         self.totalPoints = row['total_points']
-        self.wonFirstSet = row['won_first_set']
+        self.wonFirstSet = float(row['won_first_set'] == 't')
 
     def aggregate_from_table(self, table: pd.DataFrame):
         # Avg stats from table
@@ -141,52 +185,218 @@ class GameStats:
         self.totalPoints = table['total_points'].mean()
         self.wonFirstSet = len(table[table['won_first_set'] == 't']) / len(table)
 
+    @staticmethod
+    def to_csv_columns(prefix: str = ''):
+        columns: List[str] = [
+            f"{prefix}setsWon",
+            f"{prefix}setsLost",
+            f"{prefix}gamesWon",
+            f"{prefix}gamesLost",
+            f"{prefix}tiebreaksWon",
+            f"{prefix}tiebreaksLost",
+            f"{prefix}serveRating",
+            f"{prefix}aces",
+            f"{prefix}doubleFaults",
+            f"{prefix}firstServeMade",
+            f"{prefix}firstServeAttempted",
+            f"{prefix}firstServePointsMade",
+            f"{prefix}firstServePointsAttempted",
+            f"{prefix}secondServePointsMade",
+            f"{prefix}secondServePointsAttempted",
+            f"{prefix}breakPointsSaved",
+            f"{prefix}breakPointsAgainst",
+            f"{prefix}serviceGamesWon",
+            f"{prefix}returnRating",
+            f"{prefix}firstServeReturnPointsMade",
+            f"{prefix}firstServeReturnPointsAttempted",
+            f"{prefix}secondServeReturnPointsMade",
+            f"{prefix}secondServeReturnPointsAttempted",
+            f"{prefix}breakPointsMade",
+            f"{prefix}breakPointsAttempted",
+            f"{prefix}returnGamesPlayed",
+            f"{prefix}servicePointsWon",
+            f"{prefix}servicePointsAttempted",
+            f"{prefix}returnPointsWon",
+            f"{prefix}returnPointsAttempted",
+            f"{prefix}totalPointsWon",
+            f"{prefix}totalPoints",
+            f"{prefix}wonFirstSet"
+        ]
+        return columns
+
+    def to_csv_row(self):
+        return [
+            self.setsWon,
+            self.setsLost,
+            self.gamesWon,
+            self.gamesLost,
+            self.tiebreaksWon,
+            self.tiebreaksLost,
+            self.serveRating,
+            self.aces,
+            self.doubleFaults,
+            self.firstServeMade,
+            self.firstServeAttempted,
+            self.firstServePointsMade,
+            self.firstServePointsAttempted,
+            self.secondServePointsMade,
+            self.secondServePointsAttempted,
+            self.breakPointsSaved,
+            self.breakPointsAgainst,
+            self.serviceGamesWon,
+            self.returnRating,
+            self.firstServeReturnPointsMade,
+            self.firstServeReturnPointsAttempted,
+            self.secondServeReturnPointsMade,
+            self.secondServeReturnPointsAttempted,
+            self.breakPointsMade,
+            self.breakPointsAttempted,
+            self.returnGamesPlayed,
+            self.servicePointsWon,
+            self.servicePointsAttempted,
+            self.returnPointsWon,
+            self.returnPointsAttempted,
+            self.totalPointsWon,
+            self.totalPoints,
+            self.wonFirstSet
+        ]
+
 
 class MatchStats:
     def __init__(self):
         self.matchConditions: MatchConditions = MatchConditions()
-        self.duration: int = 0
-        self.won: bool = False
+        self.duration: float = 0
+        self.won: float = False
         self.gameStats: GameStats = GameStats()
 
     def from_row(self, row: pd.Series):
         self.matchConditions.from_row(row)
-        self.duration = utils.duration_to_minutes(row['duration'])
-        self.won = row['player_victory'] == 't'
+        self.duration = float(utils.duration_to_minutes(row['duration']))
+        self.won = float(row['player_victory'] == 't')
         self.gameStats.from_row(row)
+
+    @staticmethod
+    def to_csv_columns(prefix: str = ''):
+        columns: List[str] = [
+            f"{prefix}duration",
+            f"{prefix}won",
+        ]
+
+        columns.extend(MatchConditions.to_csv_columns(prefix))
+        columns.extend(GameStats.to_csv_columns(prefix))
+
+        return columns
+
+    def to_csv_row(self):
+        row: List[Any] = [
+            self.duration,
+            self.won,
+        ]
+
+        row.extend(self.matchConditions.to_csv_row())
+        row.extend(self.gameStats.to_csv_row())
+
+        return row
 
 
 class PlayerStats:
     def __init__(self):
         self.playerMatchStory: List[MatchStats] = []
-        self.playerWins: int = 0
-        self.playerLosses: int = 0
+        self.playerWins: float = 0
+        self.playerLosses: float = 0
         self.aggregatedStats: GameStats = GameStats()
 
-        self.h2hWins: int = 0
+        self.h2hWins: float = 0
+        self.h2hLosses: float = 0
         self.h2hStory: List[MatchStats] = []
 
         self.odds: float = 0.0
+
+    @staticmethod
+    def to_csv_columns(prefix: str = ''):
+        columns: List[str] = [
+            f"{prefix}totalWins",
+            f"{prefix}totalLosses",
+            f"{prefix}h2hWins",
+            f"{prefix}h2hLosses",
+            f"{prefix}odds"
+        ]
+
+        for i in range(RECENT_MATCHES_COUNT):
+            columns.extend(MatchStats.to_csv_columns(f"{prefix}prev_{i}_"))
+
+        for i in range(H2H_MATCHES_COUNT):
+            columns.extend(MatchStats.to_csv_columns(f"{prefix}h2h_{i}_"))
+
+        columns.extend(GameStats.to_csv_columns(f"{prefix}aggStyle_"))
+
+        return columns
+
+    def to_csv_row(self):
+        row: List[Any] = [
+            self.playerWins,
+            self.playerLosses,
+            self.h2hWins,
+            self.h2hLosses,
+            self.odds
+        ]
+
+        for i in range(RECENT_MATCHES_COUNT):
+            if i < len(self.playerMatchStory):
+                row.extend(self.playerMatchStory[i].to_csv_row())
+            else:
+                row.extend([0] * len(MatchStats.to_csv_columns()))
+
+        for i in range(H2H_MATCHES_COUNT):
+            if i < len(self.h2hStory):
+                row.extend(self.h2hStory[i].to_csv_row())
+            else:
+                row.extend([0] * len(MatchStats.to_csv_columns()))
+
+        row.extend(self.aggregatedStats.to_csv_row())
+
+        return row
 
 
 class MatchData:
     def __init__(self):
         self.matchConditions: MatchConditions = MatchConditions()
 
+        self.startDate: str = ''
+        self.player1: str = ''
+        self.player2: str = ''
+
         self.player1Stats: PlayerStats = PlayerStats()
         self.player2Stats: PlayerStats = PlayerStats()
+
+    @staticmethod
+    def to_csv_columns():
+        columns: List[str] = ["startDate", "player1", "player2"]
+
+        columns.extend(MatchConditions.to_csv_columns())
+        columns.extend(PlayerStats.to_csv_columns("p1_"))
+        columns.extend(PlayerStats.to_csv_columns("p2_"))
+
+        return columns
+
+    def to_csv_row(self):
+        row: pd.Series = pd.Series([self.startDate, self.player1, self.player2])
+        row = pd.concat([row, pd.Series(self.matchConditions.to_csv_row())])
+        row = pd.concat([row, pd.Series(self.player1Stats.to_csv_row())])
+        row = pd.concat([row, pd.Series(self.player2Stats.to_csv_row())])
+
+        return row
 
 
 def get_player_stats(player_match_history: pd.DataFrame, versus_player_id: str) -> PlayerStats:
     player_stats: PlayerStats = PlayerStats()
 
     # Count wins and losses (wins are player_victory == 't')
-    player_stats.playerWins = player_match_history[player_match_history['player_victory'] == 't'].shape[0]
-    player_stats.playerLosses = len(player_match_history) - player_stats.playerWins
+    player_stats.playerWins = float(player_match_history[player_match_history['player_victory'] == 't'].shape[0])
+    player_stats.playerLosses = float(len(player_match_history) - player_stats.playerWins)
 
     # Get RECENT_MATCHES_COUNT last matches from history
     player_matches_before: pd.DataFrame = player_match_history.tail(RECENT_MATCHES_COUNT)
-    player_matches_before.sort_values(by=['start_date'], inplace=True)
 
     for _, row in player_matches_before.iterrows():
         player_stats.playerMatchStory.append(MatchStats())
@@ -200,7 +410,8 @@ def get_player_stats(player_match_history: pd.DataFrame, versus_player_id: str) 
     h2h_matches = h2h_matches.sort_values(by=['start_date'])
 
     # Get number of wins in h2h matches
-    player_stats.h2hWins = h2h_matches[h2h_matches['player_victory'] == 't'].shape[0]
+    player_stats.h2hWins = float(h2h_matches[h2h_matches['player_victory'] == 't'].shape[0])
+    player_stats.h2hLosses = float(len(h2h_matches) - player_stats.h2hWins)
 
     # Get H2H_MATCHES_COUNT last matches between the two players
     for _, row in h2h_matches.tail(H2H_MATCHES_COUNT).iterrows():
@@ -222,6 +433,9 @@ def generate_own_data():
     # Create a list of tables, each containing matches of a single player (by player_id)
     players = matches['player_id'].unique()
     players_matches: Dict[str, pd.DataFrame] = {}
+
+    print("Splitting matches by player...")
+
     for player in tqdm(players):
         player_matches = matches[matches['player_id'] == player]
         players_matches[player] = player_matches
@@ -229,17 +443,20 @@ def generate_own_data():
     # For each match from bets, collect features and pack them up into a MatchData object
     parsed_matches: List[MatchData] = []
 
+    print("Parsing matches...")
     MAX_ITERS: int = 100
 
-    # Take match to collect data for
     for index, match_bets in tqdm(bets.iterrows(), total=bets.shape[0]):
-        if MAX_ITERS > 0:
-            MAX_ITERS -= 1
-        else:
-            break
+        # if MAX_ITERS > 0:
+        #     MAX_ITERS -= 1
+        # else:
+        #     break
 
         ### Find the stats of the match
         # Find the match in the player stats
+        if match_bets['team1'] not in players_matches or match_bets['team2'] not in players_matches:
+            continue
+
         player1_matches: pd.DataFrame = players_matches[match_bets['team1']]
         player2_matches: pd.DataFrame = players_matches[match_bets['team2']]
 
@@ -276,6 +493,10 @@ def generate_own_data():
         parsed_matches.append(MatchData())
         parsed_match: MatchData = parsed_matches[-1]
 
+        parsed_match.startDate = match_bets['start_date']
+        parsed_match.player1 = match_bets['team1']
+        parsed_match.player2 = match_bets['team2']
+
         parsed_match.matchConditions.from_row(player1_match)
         parsed_match.player1Stats = player1_stats
         parsed_match.player2Stats = player2_stats
@@ -286,15 +507,38 @@ def generate_own_data():
         parsed_matches.append(MatchData())
         parsed_match: MatchData = parsed_matches[-1]
 
+        parsed_match.startDate = match_bets['start_date']
+        parsed_match.player1 = match_bets['team2']
+        parsed_match.player2 = match_bets['team1']
+
         parsed_match.matchConditions.from_row(player2_match)
         parsed_match.player1Stats = player2_stats
         parsed_match.player2Stats = player1_stats
         parsed_match.player1Stats.odds = match_bets['odds2']
         parsed_match.player2Stats.odds = match_bets['odds1']
 
-    # Serialize parsed matches to json
-    # with open(paths.OWN_FULL_DATASET_PATH, 'w') as outfile:
-    #     json.dump([ob.__dict__ for ob in parsed_matches], outfile, default=lambda o: o.__dict__, indent=4)
+    # Print tournamentIds and courtSurfaces ids
+    print("Tournaments:")
+    for key, value in tournamentIds.items():
+        print(f"\t{key}: {value}")
+
+    print("Court surfaces:")
+    for key, value in courtSurfaces.items():
+        print(f"\t{key}: {value}")
+
+    # Preprocess data to be stored in csv
+    own_matches_list: List[pd.Series] = []
+
+    print("Merging matches to a single dataframe...")
+
+    for match in tqdm(parsed_matches):
+        own_matches_list.append(match.to_csv_row())
+
+    own_matches_df = pd.concat(own_matches_list, axis=1).T
+    own_matches_df.columns = MatchData.to_csv_columns()
+
+    # Store the data
+    own_matches_df.to_csv(paths.OWN_FULL_DATASET_PATH, index=False)
 
     return matches
 
@@ -335,15 +579,6 @@ def clean_data():
 
     # Leave only following columns: start_date,team1,team2,odds1,odds2
     bets = bets[['start_date', 'team1', 'team2', 'odds1', 'odds2']]
-
-    # Appends bets copy at the end of bets with flipped teams and odds
-    bets_flipped = bets.copy()
-    bets_flipped['team1'] = bets['team2']
-    bets_flipped['team2'] = bets['team1']
-    bets_flipped['odds1'] = bets['odds2']
-    bets_flipped['odds2'] = bets['odds1']
-    bets = pd.concat([bets, bets_flipped])
-
     bets.sort_values(by=['start_date', 'team1', 'team2'])
 
     # Merge matches with bets by (start_date, player_id, opponent_id) with (start_date, team1, team2)
@@ -374,9 +609,9 @@ def generate_clean_org_dataset():
     # Check if the datasets already exist and notify the user
     # Don't delete them every time to save SSD read/write cycles
     if os.path.exists(paths.ORG_DATASET_DIR):
-        shutil.rmtree(paths.ORG_DATASET_DIR)
-        # assert False, f'Org dataset folder already exists at {os.path.normpath(paths.ORG_DATASET_DIR)}.' \
-        #               f' If you want to regenerate the dataset, please remove the folder manually.'
+        # shutil.rmtree(paths.ORG_DATASET_DIR)
+        assert False, f'Org dataset folder already exists at {os.path.normpath(paths.ORG_DATASET_DIR)}.' \
+                      f' If you want to regenerate the dataset, please remove the folder manually.'
 
     if os.path.exists(paths.ORG_CLEAN_DATASET_ZIP_PATH):
         os.remove(paths.ORG_CLEAN_DATASET_ZIP_PATH)
@@ -398,9 +633,9 @@ def generate_own_dataset():
     # Check if the datasets already exist and notify the user
     # Don't delete them every time to save SSD read/write cycles
     if os.path.exists(paths.OWN_DATASET_DIR):
-        shutil.rmtree(paths.OWN_DATASET_DIR)
-        # assert False, f'Own dataset folder already exists at {os.path.normpath(paths.OWN_DATASET_PATH)}.' \
-        #               f' If you want to regenerate the dataset, please remove the folder manually.'
+        # shutil.rmtree(paths.OWN_DATASET_DIR)
+        assert False, f'Own dataset folder already exists at {os.path.normpath(paths.OWN_DATASET_DIR)}.' \
+                      f' If you want to regenerate the dataset, please remove the folder manually.'
 
     if os.path.exists(paths.ORG_CLEAN_DATASET_DIR):
         shutil.rmtree(paths.ORG_CLEAN_DATASET_DIR)
@@ -408,8 +643,8 @@ def generate_own_dataset():
     # Unzip org clean dataset
     utils.unzip(paths.ORG_CLEAN_DATASET_ZIP_PATH, paths.ORG_CLEAN_DATASET_DIR)
 
-    # TMP: Copy org dataset to own dataset - to be replaced with proper data generation
-    shutil.copytree(paths.ORG_CLEAN_DATASET_DIR, paths.OWN_DATASET_DIR)
+    # Create own dataset folder
+    os.mkdir(paths.OWN_DATASET_DIR)
 
     # Generate own dataset
     generate_own_data()
