@@ -1,0 +1,32 @@
+root_path:
+
+dataset:
+  path: "${root_path}/data"
+  metadata_path: "${dataset.path}/metadata.csv"
+  data_path: "${dataset.path}/data"
+
+training:
+  gpu: 0
+  epochs: 100
+  batch_size: 32
+  num_workers: 4
+  seed:
+
+model:
+  name: model
+  n_layers: 3
+  n_features: 10
+
+sweep:
+  method: random
+  parameters:
+      model:
+        parameters:
+          n_layers:
+            distribution: int_uniform
+            min: 1
+            max: 5
+          n_features:
+            distribution: int_uniform
+            min: 1
+            max: 50

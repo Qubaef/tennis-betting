@@ -1,15 +1,11 @@
-import json
 import os
 import shutil
-import math
 from tqdm import tqdm
 from typing import List, Dict
 
 import pandas as pd
-import numpy as np
 
-import src.utils as utils
-import src.paths as paths
+from data_generation.src import utils, paths
 
 RECENT_MATCHES_COUNT = 7
 H2H_MATCHES_COUNT = 3
@@ -361,7 +357,7 @@ def clean_data():
 
     # Zip the cleaned datasets
     utils.zip_files([paths.ORG_CLEAN_STATS_DATASET_PATH, paths.ORG_CLEAN_BETS_DATASET_PATH],
-        paths.ORG_CLEAN_DATASET_ZIP_PATH)
+                    paths.ORG_CLEAN_DATASET_ZIP_PATH)
 
     # Delete the unzipped datasets
     os.remove(paths.ORG_CLEAN_STATS_DATASET_PATH)
