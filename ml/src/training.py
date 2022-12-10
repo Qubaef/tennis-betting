@@ -8,6 +8,9 @@ import torch.utils.data
 from omegaconf import OmegaConf
 from enum import Enum
 import wandb
+from torch import nn, optim
+from .LSTM import LSTMModel
+
 from ml.src.configuration.configuration import ConfigStore, Config, Dataset, Model, Training
 
 
@@ -43,12 +46,20 @@ def create_loss(cfg: Config) -> torch.nn.Module:
     return None
 
 
-def create_scheduler(cfg: Config) -> Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.ReduceLROnPlateau]:
-    return None
+def create_scheduler(cfg: Config, optimizer) -> Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.ReduceLROnPlateau]:
+    return torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        factor=cfg.training.factor,
+        patience=cfg.training.patience,
+        verbose=True,
+        threshold=cfg.training.threshold,
+        threshold_mode="abs",
+    )
 
 
-def create_optimizer(cfg: Config) -> torch.optim.Optimizer:
-    return None
+def create_optimizer(cfg: Config, model: nn.Module) -> torch.optim.Optimizer:
+    return optim.Adam(model.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
 
 
 def create_dataloaders(cfg: Config) -> Dict[Phase, torch.utils.data.DataLoader]:
@@ -56,7 +67,24 @@ def create_dataloaders(cfg: Config) -> Dict[Phase, torch.utils.data.DataLoader]:
 
 
 def create_model(cfg: Config) -> torch.nn.Module:
-    return None
+    if cfg.model.name == "ANN":
+        return nn.Sequential(
+            nn.Linear(cfg.model.n_features, cfg.model.hidden_size1),
+            nn.ReLU(),
+            nn.BatchNorm1d(cfg.model.hidden_size1),
+            nn.Dropout(cfg.model.dropout),
+            nn.Linear(cfg.model.hidden_size1, cfg.model.hidden_size2),
+            nn.ReLU(),
+            nn.BatchNorm1d(cfg.model.hidden_size2),
+            nn.Dropout(cfg.model.dropout),
+            nn.Linear(cfg.model.hidden_size2, cfg.model.n_classes),
+            nn.Softmax(dim=1)
+        )
+    elif cfg.model.name == "LSTM":
+        return LSTMModel(cfg.model.n_features, cfg.model.hidden_size1, cfg.model.n_classes, cfg.model.n_layers, cfg.training.batch_size, cfg.model.time_steps, cfg.model.dropout)
+    else:
+        raise Exception("Unknown model")
+
 
 
 def train_epoch(training: TrainingData) -> float:
@@ -115,8 +143,8 @@ def train():
             model.cuda(cfg.training.gpu)
 
         loss = create_loss(cfg)
-        optimizer = create_optimizer(cfg)
-        scheduler = create_scheduler(cfg)
+        optimizer = create_optimizer(cfg, model)
+        scheduler = create_scheduler(cfg, optimizer)
 
         training = TrainingData(cfg, dataloaders, model, loss, optimizer, scheduler)
 

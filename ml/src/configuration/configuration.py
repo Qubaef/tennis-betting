@@ -18,6 +18,12 @@ class Model:
     name: str = "model"
     n_layers: int = 3
     n_features: int = 10
+    n_classes: int = 1
+    hidden_size1: int = 256
+    hidden_size2: int = 128
+    dropout: float = 0.1
+    time_steps: int = 10
+
 
 
 @dataclass
@@ -27,6 +33,11 @@ class Training:
     batch_size: int = 128
     num_workers: int = 4
     seed: Optional[int] = None
+    lr: float = 0.001
+    weight_decay: float = 0
+    factor: float = 0.1
+    patience: int = 10
+    threshold: float = 0.0001
 
 
 @dataclass
