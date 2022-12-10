@@ -3,13 +3,13 @@ import os
 from dataclasses import dataclass
 from typing import Dict, Any
 
-import hydra
 import torch
 import torch.utils.data
-from omegaconf import omegaconf
+import omegaconf
+from omegaconf import OmegaConf
 from enum import Enum
 import wandb
-import ml.src.configuration.configuration as config
+from ml.src.configuration.configuration import ConfigStore, Config, Dataset, Model, Training
 
 
 class Phase(Enum):
@@ -20,8 +20,7 @@ class Phase(Enum):
 
 @dataclass
 class TrainingData:
-    cfg: config.Config
-    wb: wandb
+    cfg: Config
     dataloaders: Dict[Phase, torch.utils.data.DataLoader]
     model: torch.nn.Module
     loss: torch.nn.Module
@@ -32,7 +31,7 @@ class TrainingData:
     best_model_weights: dict = None
     epoch: int = 0
 
-    def update(self, val_loss):
+    def update_best(self, val_loss):
         self.epoch += 1
         if self.best_val_loss is None or val_loss < self.best_val_loss:
             self.best_val_loss = val_loss
@@ -40,28 +39,30 @@ class TrainingData:
             self.best_model_weights = copy.deepcopy(self.model.state_dict())
 
 
-def create_loss(cfg: config.Config) -> torch.nn.Module:
+def create_loss(cfg: Config) -> torch.nn.Module:
     return None
 
 
-def create_scheduler(cfg: config.Config) -> Any:
+def create_scheduler(cfg: Config) -> Any:
     return None
 
 
-def create_optimizer(cfg: config.Config) -> torch.optim.Optimizer:
+def create_optimizer(cfg: Config) -> torch.optim.Optimizer:
     return None
 
 
-def create_dataloaders(cfg: config.Config) -> Dict[Phase, torch.utils.data.DataLoader]:
+def create_dataloaders(cfg: Config) -> Dict[Phase, torch.utils.data.DataLoader]:
     return None
 
 
-def create_model(cfg: config.Config) -> torch.nn.Module:
+def create_model(cfg: Config) -> torch.nn.Module:
     return None
 
 
-def train_epoch(training: TrainingData):
+def train_epoch(training: TrainingData) -> float:
     training.model.train()
+
+    loss_sum = 0
     for i, data in enumerate(training.dataloaders[Phase.TRAIN]):
         inputs, targets = data
 
@@ -69,32 +70,41 @@ def train_epoch(training: TrainingData):
 
         outputs = training.model(inputs)
 
-        loss_value = training.loss(outputs, targets)
-        loss_value.backward()
-
+        loss = training.loss(outputs, targets)
+        loss.backward()
         training.optimizer.step()
-        training.wb.log({"train_loss": loss_value.item()})
+
+        loss_sum += loss.item()
+        wandb.log({"train_batch_loss": loss.item()})
+
+    return loss_sum / len(training.dataloaders[Phase.TRAIN])
 
 
-def val_epoch(training: TrainingData):
+def val_epoch(training: TrainingData) -> float:
     training.model.eval()
+
+    loss_sum = 0
     for i, data in enumerate(training.dataloaders[Phase.VAL]):
         inputs, targets = data
         outputs = training.model(inputs)
 
-        loss_value = training.loss(outputs, targets)
-        training.wb.log({"val_loss": loss_value.item()})
+        loss = training.loss(outputs, targets)
+        loss_sum += loss.item()
+        wandb.log({"val_batch_loss": loss.item()})
+
+    return loss_sum / len(training.dataloaders[Phase.VAL])
 
 
-root_path = os.path.abspath(f'{os.path.dirname(os.path.abspath(__file__))}/../../')
-config_path = f'{root_path}/ml/config'
+def train():
+    with wandb.init(project="tennis-betting"):
 
+        if ConfigStore.cfg is None:
+            raise Exception("Config not loaded")
+        # Merge full config with sweep overrides
+        ConfigStore.sweep_override(wandb.config)
+        OmegaConf.to_container(ConfigStore.cfg, resolve=True, throw_on_missing=True)
 
-@hydra.main(version_base=None, config_path=config_path, config_name="config")
-def main(cfg: config.Config):
-    cfg.root_path = root_path
-    with wandb.init(project="tennis-betting",
-                    config=omegaconf.OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)):
+        cfg: Config = ConfigStore.cfg
 
         dataloaders = create_dataloaders(cfg)
 
@@ -106,11 +116,35 @@ def main(cfg: config.Config):
         optimizer = create_optimizer(cfg)
         scheduler = create_scheduler(cfg)
 
-        training = TrainingData(cfg, wandb, dataloaders, model, loss, optimizer, scheduler)
+        training = TrainingData(cfg, dataloaders, model, loss, optimizer, scheduler)
 
         for epoch in range(cfg.training.epochs):
-            train_epoch(training)
-            val_epoch(training)
+            train_epoch_loss = train_epoch(training)
+            wandb.log({"train_epoch_loss": train_epoch_loss})
+
+            val_epoch_loss = val_epoch(training)
+            wandb.log({"val_epoch_loss": val_epoch_loss})
+
+            training.update_best(val_epoch_loss)
+
+
+def main():
+    root_path = os.path.abspath(f'{os.path.dirname(os.path.abspath(__file__))}/../../')
+    config_path = f'{root_path}/ml/config/config.yaml'
+
+    ConfigStore.load(config_path)
+    cfg = ConfigStore.cfg
+
+    if cfg.dataset.path is None:
+        cfg.dataset.path = root_path
+    print(cfg.dataset.metadata_path)
+
+    if cfg.sweep is None:
+        train()
+    else:
+        sweep_cfg = OmegaConf.to_container(cfg.sweep, resolve=True)
+        sweep_id = wandb.sweep(sweep_cfg, project="tennis-betting")
+        wandb.agent(sweep_id, train, count=5)
 
 
 if __name__ == "__main__":

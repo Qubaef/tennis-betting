@@ -1,5 +1,0 @@
-gpu: 0
-epochs: 100
-batch_size: 32
-num_workers: 4
-seed: None

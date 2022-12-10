@@ -1,7 +1,28 @@
-defaults:
-  - _self_
-  - dataset: dataset
-  - model: model
-  - training: training
+dataset:
+  path:
+  metadata_path: "${dataset.path}/metadata.csv"
+  data_path: "${dataset.path}/data"
 
-root_path: None
+training:
+  gpu: 0
+  epochs: 100
+  batch_size: 32
+  num_workers: 4
+  seed:
+
+model:
+  name: model
+  n_layers: 3
+  n_features: 10
+
+sweep:
+  method: random
+  parameters:
+    model.n_layers:
+      distribution: int_uniform
+      min: 1
+      max: 5
+    model.n_features:
+      distribution: int_uniform
+      min: 1
+      max: 50
