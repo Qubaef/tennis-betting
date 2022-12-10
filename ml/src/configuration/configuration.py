@@ -10,9 +10,9 @@ from omegaconf import SI, OmegaConf
 
 @dataclass
 class Dataset:
-    path: Optional[str] = None
+    path: Optional[str] = SI("${root_path}/data")
     metadata_path: str = SI("${path}/metadata.csv")
-    data_path: str = SI("${path}/metadata.csv")
+    data_path: str = SI("${path}/data")
 
 
 @dataclass
@@ -37,6 +37,7 @@ class Config:
     model: Model = field(default_factory=Model)
     training: Training = field(default_factory=Training)
     sweep: Optional[dict] = None
+    root_path: Optional[str] = None
 
 
 class ConfigStore(type):
@@ -50,7 +51,17 @@ class ConfigStore(type):
 
     @staticmethod
     def sweep_override(sweep_config: wandb.sdk.wandb_config.Config):
+        sweep_overrides = OmegaConf.create(dict(sweep_config))
+        ConfigStore.cfg = OmegaConf.merge(ConfigStore.cfg, sweep_overrides)
 
-        for key, value in sweep_config.items():
-            OmegaConf.update(ConfigStore.cfg, key, value, merge=True)
+    @staticmethod
+    def save_config(path: str, filename: str = "all_config.yaml"):
+        OmegaConf.save(ConfigStore.cfg, os.path.join(path, filename))
 
+    @staticmethod
+    def print_config():
+        print(OmegaConf.to_yaml(ConfigStore.cfg))
+
+    @staticmethod
+    def to_yaml_string():
+        return OmegaConf.to_yaml(ConfigStore.cfg)

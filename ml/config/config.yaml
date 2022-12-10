@@ -1,5 +1,7 @@
+root_path:
+
 dataset:
-  path:
+  path: "${root_path}/data"
   metadata_path: "${dataset.path}/metadata.csv"
   data_path: "${dataset.path}/data"
 
@@ -18,11 +20,13 @@ model:
 sweep:
   method: random
   parameters:
-    model.n_layers:
-      distribution: int_uniform
-      min: 1
-      max: 5
-    model.n_features:
-      distribution: int_uniform
-      min: 1
-      max: 50
+      model:
+        parameters:
+          n_layers:
+            distribution: int_uniform
+            min: 1
+            max: 5
+          n_features:
+            distribution: int_uniform
+            min: 1
+            max: 50

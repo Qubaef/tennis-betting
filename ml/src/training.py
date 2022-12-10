@@ -97,13 +97,15 @@ def val_epoch(training: TrainingData) -> float:
 
 
 def train():
-    with wandb.init(project="tennis-betting"):
+    cfg = ConfigStore.cfg
+    with wandb.init(entity="pg-pug-tennis-betting", project="tennis-betting", config=cfg):
 
         if ConfigStore.cfg is None:
             raise Exception("Config not loaded")
-        # Merge full config with sweep overrides
+        # Override config with sweep values and save whole config in wandb run folder
         ConfigStore.sweep_override(wandb.config)
-        OmegaConf.to_container(ConfigStore.cfg, resolve=True, throw_on_missing=True)
+        ConfigStore.save_config(wandb.run.dir)
+        wandb.save(f'all_config.yaml', policy="now")
 
         cfg: Config = ConfigStore.cfg
 
@@ -136,16 +138,16 @@ def main():
     ConfigStore.load(config_path)
     cfg = ConfigStore.cfg
 
-    if cfg.dataset.path is None:
-        cfg.dataset.path = root_path
+    if cfg.root_path is None:
+        cfg.root_path = root_path
     print(cfg.dataset.metadata_path)
 
     if cfg.sweep is None:
         train()
     else:
         sweep_cfg = OmegaConf.to_container(cfg.sweep, resolve=True)
-        sweep_id = wandb.sweep(sweep_cfg, project="tennis-betting")
-        wandb.agent(sweep_id, train, count=5)
+        sweep_id = wandb.sweep(sweep_cfg, entity="pg-pug-tennis-betting", project="tennis-betting")
+        wandb.agent(sweep_id, train, count=1)
 
 
 if __name__ == "__main__":
