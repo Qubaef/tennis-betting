@@ -1,7 +1,7 @@
 import copy
 import os
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 import torch
 import torch.utils.data
@@ -25,7 +25,8 @@ class TrainingData:
     model: torch.nn.Module
     loss: torch.nn.Module
     optimizer: torch.optim.Optimizer
-    scheduler: Any  # Base class is private in torch (https://github.com/pytorch/pytorch/pull/88503)
+    # Base class is private in torch (https://github.com/pytorch/pytorch/pull/88503)
+    scheduler: Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.ReduceLROnPlateau]
 
     best_val_loss: float = None
     best_model_weights: dict = None
@@ -43,7 +44,7 @@ def create_loss(cfg: Config) -> torch.nn.Module:
     return None
 
 
-def create_scheduler(cfg: Config) -> Any:
+def create_scheduler(cfg: Config) -> Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.ReduceLROnPlateau]:
     return None
 
 
