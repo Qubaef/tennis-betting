@@ -15,12 +15,11 @@ class Dataset:
 
 @dataclass
 class Model:
-    name: str = "model"
+    name: str = "ANN"
     n_layers: int = 3
     n_features: int = 10
     n_classes: int = 1
-    hidden_size1: int = 256
-    hidden_size2: int = 128
+    hidden_size: int = 256
     dropout: float = 0.1
     time_steps: int = 10
 

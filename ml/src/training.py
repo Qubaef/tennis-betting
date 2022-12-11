@@ -10,6 +10,7 @@ from enum import Enum
 import wandb
 from torch import nn, optim
 from .LSTM import LSTMModel
+from .ANN import ANNModel
 
 from ml.src.configuration.configuration import ConfigStore, Config, Dataset, Model, Training
 
@@ -68,20 +69,9 @@ def create_dataloaders(cfg: Config) -> Dict[Phase, torch.utils.data.DataLoader]:
 
 def create_model(cfg: Config) -> torch.nn.Module:
     if cfg.model.name == "ANN":
-        return nn.Sequential(
-            nn.Linear(cfg.model.n_features, cfg.model.hidden_size1),
-            nn.ReLU(),
-            nn.BatchNorm1d(cfg.model.hidden_size1),
-            nn.Dropout(cfg.model.dropout),
-            nn.Linear(cfg.model.hidden_size1, cfg.model.hidden_size2),
-            nn.ReLU(),
-            nn.BatchNorm1d(cfg.model.hidden_size2),
-            nn.Dropout(cfg.model.dropout),
-            nn.Linear(cfg.model.hidden_size2, cfg.model.n_classes),
-            nn.Softmax(dim=1)
-        )
+        return ANNModel(cfg.model.n_features, cfg.model.hidden_size, cfg.model.n_classes, cfg.model.n_layers, cfg.model.dropout)
     elif cfg.model.name == "LSTM":
-        return LSTMModel(cfg.model.n_features, cfg.model.hidden_size1, cfg.model.n_classes, cfg.model.n_layers, cfg.training.batch_size, cfg.model.time_steps, cfg.model.dropout)
+        return LSTMModel(cfg.model.n_features, cfg.model.hidden_size, cfg.model.n_classes, cfg.model.n_layers, cfg.training.batch_size, cfg.model.time_steps, cfg.model.dropout)
     else:
         raise Exception("Unknown model")
 
