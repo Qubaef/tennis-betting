@@ -2,9 +2,8 @@ from torch import nn
 
 
 class ANNModel(nn.Module):
-
     def __init__(self, input_dim, hidden_dim, target_size, num_layers, dropout):
-        super(ANNModel, self).__init__()
+        super().__init__()
         self.layers = nn.ModuleList()
         for i in range(num_layers):
             hidden_dim = int(hidden_dim / 2) if i > 0 else hidden_dim

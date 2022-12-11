@@ -22,7 +22,6 @@ class Model:
     time_steps: int = 10
 
 
-
 @dataclass
 class Training:
     gpu: int = 0
@@ -50,24 +49,24 @@ class ConfigStore(type):
     cfg: Optional[Config] = None
 
     @staticmethod
-    def load(path: str):
+    def load(path: str) -> None:
         cfg: Config = OmegaConf.structured(Config)
         cfg_raw = OmegaConf.load(path)
         ConfigStore.cfg = OmegaConf.merge(cfg, cfg_raw)
 
     @staticmethod
-    def sweep_override(sweep_config: wandb.sdk.wandb_config.Config):
+    def sweep_override(sweep_config: wandb.sdk.wandb_config.Config) -> None:
         sweep_overrides = OmegaConf.create(dict(sweep_config))
         ConfigStore.cfg = OmegaConf.merge(ConfigStore.cfg, sweep_overrides)
 
     @staticmethod
-    def save_config(path: str, filename: str = "all_config.yaml"):
+    def save_config(path: str, filename: str = "all_config.yaml") -> None:
         OmegaConf.save(ConfigStore.cfg, os.path.join(path, filename))
 
     @staticmethod
-    def print_config():
+    def print_config() -> None:
         print(OmegaConf.to_yaml(ConfigStore.cfg))
 
     @staticmethod
-    def to_yaml_string():
+    def to_yaml_string() -> str:
         return OmegaConf.to_yaml(ConfigStore.cfg)

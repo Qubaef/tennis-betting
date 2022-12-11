@@ -1,6 +1,6 @@
 import copy
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Any, Union
 
 import torch
@@ -12,7 +12,13 @@ from torch import nn, optim
 from LSTM import LSTMModel
 from ANN import ANNModel
 from tqdm import tqdm
-from ml.src.configuration.configuration import ConfigStore, Config, Dataset, Model, Training
+from ml.src.configuration.configuration import (
+    ConfigStore,
+    Config,
+    Dataset,
+    Model,
+    Training,
+)
 from ml.src.dataset import TennisDataset
 
 
@@ -24,10 +30,13 @@ class TrainingData:
     loss: torch.nn.Module
     optimizer: torch.optim.Optimizer
     # Base class is private in torch (https://github.com/pytorch/pytorch/pull/88503)
-    scheduler: Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.ReduceLROnPlateau]
+    scheduler: Union[
+        torch.optim.lr_scheduler._LRScheduler,
+        torch.optim.lr_scheduler.ReduceLROnPlateau,
+    ]
 
-    best_val_loss: float = None
-    best_model_weights: dict = None
+    best_val_loss: float = 1e10
+    best_model_weights: dict = field(default_factory=dict)
     epoch: int = 0
 
     def update_best(self, val_loss):
@@ -42,7 +51,11 @@ def create_loss(cfg: Config) -> torch.nn.Module:
     return nn.CrossEntropyLoss()
 
 
-def create_scheduler(cfg: Config, optimizer) -> Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.ReduceLROnPlateau]:
+def create_scheduler(
+    cfg: Config, optimizer: torch.optim.Optimizer
+) -> Union[
+    torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.ReduceLROnPlateau
+]:
     return torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer,
         mode="min",
@@ -55,7 +68,9 @@ def create_scheduler(cfg: Config, optimizer) -> Union[torch.optim.lr_scheduler._
 
 
 def create_optimizer(cfg: Config, model: nn.Module) -> torch.optim.Optimizer:
-    return optim.Adam(model.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay)
+    return optim.Adam(
+        model.parameters(), lr=cfg.training.lr, weight_decay=cfg.training.weight_decay
+    )
 
 
 def create_dataloaders(cfg: Config) -> Dict[Phase, torch.utils.data.DataLoader]:
@@ -68,9 +83,23 @@ def create_dataloaders(cfg: Config) -> Dict[Phase, torch.utils.data.DataLoader]:
 
 def create_model(cfg: Config) -> torch.nn.Module:
     if cfg.model.name == "ANN":
-        return ANNModel(cfg.model.n_features, cfg.model.hidden_size, cfg.model.n_classes, cfg.model.n_layers, cfg.model.dropout)
+        return ANNModel(
+            cfg.model.n_features,
+            cfg.model.hidden_size,
+            cfg.model.n_classes,
+            cfg.model.n_layers,
+            cfg.model.dropout,
+        )
     elif cfg.model.name == "LSTM":
-        return LSTMModel(cfg.model.n_features, cfg.model.hidden_size, cfg.model.n_classes, cfg.model.n_layers, cfg.training.batch_size, cfg.model.time_steps, cfg.model.dropout)
+        return LSTMModel(
+            cfg.model.n_features,
+            cfg.model.hidden_size,
+            cfg.model.n_classes,
+            cfg.model.n_layers,
+            cfg.training.batch_size,
+            cfg.model.time_steps,
+            cfg.model.dropout,
+        )
     else:
         raise Exception("Unknown model")
 
@@ -113,14 +142,16 @@ def val_epoch(training: TrainingData) -> float:
 
 def train():
     cfg = ConfigStore.cfg
-    with wandb.init(entity="pg-pug-tennis-betting", project="tennis-betting", config=cfg):
+    with wandb.init(
+        entity="pg-pug-tennis-betting", project="tennis-betting", config=cfg
+    ):
 
         if ConfigStore.cfg is None:
             raise Exception("Config not loaded")
         # Override config with sweep values and save whole config in wandb run folder
         ConfigStore.sweep_override(wandb.config)
         ConfigStore.save_config(wandb.run.dir)
-        wandb.save(f'all_config.yaml', policy="now")
+        wandb.save("all_config.yaml", policy="now")
 
         cfg: Config = ConfigStore.cfg
 
@@ -147,8 +178,8 @@ def train():
 
 
 def main():
-    root_path = os.path.abspath(f'{os.path.dirname(os.path.abspath(__file__))}/../../')
-    config_path = f'{root_path}/ml/config/config.yaml'
+    root_path = os.path.abspath(f"{os.path.dirname(os.path.abspath(__file__))}/../../")
+    config_path = f"{root_path}/ml/config/config.yaml"
 
     ConfigStore.load(config_path)
     cfg = ConfigStore.cfg
@@ -160,7 +191,9 @@ def main():
         train()
     else:
         sweep_cfg = OmegaConf.to_container(cfg.sweep, resolve=True)
-        sweep_id = wandb.sweep(sweep_cfg, entity="pg-pug-tennis-betting", project="tennis-betting")
+        sweep_id = wandb.sweep(
+            sweep_cfg, entity="pg-pug-tennis-betting", project="tennis-betting"
+        )
         wandb.agent(sweep_id, train, count=1)
 
 

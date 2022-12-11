@@ -12,13 +12,18 @@ class TennisDataset(Dataset):
         self.cfg = cfg
         self.data = pd.read_csv(cfg.dataset.data_path)
         if phase == Phase.TRAIN:
-            self.data = self.data[self.data['startDate'] < '2017-01-01']
+            self.data = self.data[self.data["startDate"] < "2017-01-01"]
         elif phase == Phase.VAL:
-            self.data = self.data[(self.data['startDate'] >= '2017-01-01') & (self.data['startDate'] < '2018-01-01')]
+            self.data = self.data[
+                (self.data["startDate"] >= "2017-01-01")
+                & (self.data["startDate"] < "2018-01-01")
+            ]
         elif phase == Phase.TEST:
-            self.data = self.data[self.data['startDate'] >= '2018-01-01']
-        self.label = self.data['winner'].to_numpy().astype(np.int64)
-        self.data = self.data.drop(['winner', 'startDate', 'player1', 'player2'], axis=1)
+            self.data = self.data[self.data["startDate"] >= "2018-01-01"]
+        self.label = self.data["winner"].to_numpy().astype(np.int64)
+        self.data = self.data.drop(
+            ["winner", "startDate", "player1", "player2"], axis=1
+        )
         self.data = self.data.to_numpy().astype(np.float32)
         self.data = torch.from_numpy(self.data)
         self.label = torch.tensor(self.label)
