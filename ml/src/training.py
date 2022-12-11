@@ -82,9 +82,6 @@ def train_epoch(training: TrainingData) -> float:
 
     for i, data in enumerate(training.dataloaders[Phase.TRAIN]):
         inputs, targets = data
-        if torch.cuda.is_available():
-            inputs = inputs.cuda(training.cfg.training.gpu)
-            targets = targets.cuda(training.cfg.training.gpu)
         training.optimizer.zero_grad()
 
         outputs = training.model(inputs)
@@ -105,9 +102,6 @@ def val_epoch(training: TrainingData) -> float:
     loss_sum = 0
     for i, data in enumerate(training.dataloaders[Phase.VAL]):
         inputs, targets = data
-        if torch.cuda.is_available():
-            inputs = inputs.cuda(training.cfg.training.gpu)
-            targets = targets.cuda(training.cfg.training.gpu)
         outputs = training.model(inputs)
 
         loss = training.loss(outputs, targets)
