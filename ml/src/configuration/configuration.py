@@ -8,17 +8,15 @@ from omegaconf import SI, OmegaConf
 
 @dataclass
 class Dataset:
-    path: Optional[str] = SI("${root_path}/data")
-    metadata_path: str = SI("${path}/metadata.csv")
-    data_path: str = SI("${path}/data")
+    data_path: str = SI("${root_path}/data/own/data.csv")
 
 
 @dataclass
 class Model:
     name: str = "ANN"
     n_layers: int = 3
-    n_features: int = 10
-    n_classes: int = 1
+    n_features: int = 881
+    n_classes: int = 2
     hidden_size: int = 256
     dropout: float = 0.1
     time_steps: int = 10

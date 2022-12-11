@@ -6,19 +6,14 @@ from typing import Dict, Any, Union
 import torch
 import torch.utils.data
 from omegaconf import OmegaConf
-from enum import Enum
+from ml.src.phase import Phase
 import wandb
 from torch import nn, optim
 from LSTM import LSTMModel
 from ANN import ANNModel
-
+from tqdm import tqdm
 from ml.src.configuration.configuration import ConfigStore, Config, Dataset, Model, Training
-
-
-class Phase(Enum):
-    TRAIN = 1
-    VAL = 2
-    TEST = 3
+from ml.src.dataset import TennisDataset
 
 
 @dataclass
@@ -44,7 +39,7 @@ class TrainingData:
 
 
 def create_loss(cfg: Config) -> torch.nn.Module:
-    return None
+    return nn.CrossEntropyLoss()
 
 
 def create_scheduler(cfg: Config, optimizer) -> Union[torch.optim.lr_scheduler._LRScheduler, torch.optim.lr_scheduler.ReduceLROnPlateau]:
@@ -64,7 +59,11 @@ def create_optimizer(cfg: Config, model: nn.Module) -> torch.optim.Optimizer:
 
 
 def create_dataloaders(cfg: Config) -> Dict[Phase, torch.utils.data.DataLoader]:
-    return None
+    dataloaders = {}
+    for phase in Phase:
+        dataset = TennisDataset(cfg, phase)
+        dataloaders[phase] = dataset.create_data_loader(phase)
+    return dataloaders
 
 
 def create_model(cfg: Config) -> torch.nn.Module:
@@ -76,14 +75,16 @@ def create_model(cfg: Config) -> torch.nn.Module:
         raise Exception("Unknown model")
 
 
-
 def train_epoch(training: TrainingData) -> float:
     training.model.train()
 
     loss_sum = 0
+
     for i, data in enumerate(training.dataloaders[Phase.TRAIN]):
         inputs, targets = data
-
+        if torch.cuda.is_available():
+            inputs = inputs.cuda(training.cfg.training.gpu)
+            targets = targets.cuda(training.cfg.training.gpu)
         training.optimizer.zero_grad()
 
         outputs = training.model(inputs)
@@ -104,6 +105,9 @@ def val_epoch(training: TrainingData) -> float:
     loss_sum = 0
     for i, data in enumerate(training.dataloaders[Phase.VAL]):
         inputs, targets = data
+        if torch.cuda.is_available():
+            inputs = inputs.cuda(training.cfg.training.gpu)
+            targets = targets.cuda(training.cfg.training.gpu)
         outputs = training.model(inputs)
 
         loss = training.loss(outputs, targets)
@@ -138,7 +142,7 @@ def train():
 
         training = TrainingData(cfg, dataloaders, model, loss, optimizer, scheduler)
 
-        for epoch in range(cfg.training.epochs):
+        for epoch in tqdm(range(cfg.training.epochs)):
             train_epoch_loss = train_epoch(training)
             wandb.log({"train_epoch_loss": train_epoch_loss})
 
@@ -155,7 +159,7 @@ def main():
     ConfigStore.load(config_path)
     cfg = ConfigStore.cfg
 
-    if cfg.root_path is None:
+    if cfg.root_path == "":
         cfg.root_path = root_path
 
     if cfg.sweep is None:
