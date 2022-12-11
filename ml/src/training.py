@@ -9,8 +9,8 @@ from omegaconf import OmegaConf
 from enum import Enum
 import wandb
 from torch import nn, optim
-from .LSTM import LSTMModel
-from .ANN import ANNModel
+from LSTM import LSTMModel
+from ANN import ANNModel
 
 from ml.src.configuration.configuration import ConfigStore, Config, Dataset, Model, Training
 
@@ -157,7 +157,6 @@ def main():
 
     if cfg.root_path is None:
         cfg.root_path = root_path
-    print(cfg.dataset.metadata_path)
 
     if cfg.sweep is None:
         train()
