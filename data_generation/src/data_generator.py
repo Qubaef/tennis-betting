@@ -310,8 +310,6 @@ class PlayerStats:
         self.h2hLosses: float = 0
         self.h2hStory: List[MatchStats] = []
 
-        self.odds: float = 0.0
-
     @staticmethod
     def to_csv_columns(prefix: str = ''):
         columns: List[str] = [
@@ -319,7 +317,6 @@ class PlayerStats:
             f"{prefix}totalLosses",
             f"{prefix}h2hWins",
             f"{prefix}h2hLosses",
-            f"{prefix}odds"
         ]
 
         for i in range(RECENT_MATCHES_COUNT):
@@ -338,7 +335,6 @@ class PlayerStats:
             self.playerLosses,
             self.h2hWins,
             self.h2hLosses,
-            self.odds
         ]
 
         for i in range(RECENT_MATCHES_COUNT):
@@ -365,13 +361,16 @@ class MatchData:
         self.startDate: str = ''
         self.player1: str = ''
         self.player2: str = ''
+        self.odds1: float = 0
+        self.odds2: float = 0
+        self.winner: float = 0
 
         self.player1Stats: PlayerStats = PlayerStats()
         self.player2Stats: PlayerStats = PlayerStats()
 
     @staticmethod
     def to_csv_columns():
-        columns: List[str] = ["startDate", "player1", "player2"]
+        columns: List[str] = ["startDate", "player1", "player2", "odds1", "odds2", "winner"]
 
         columns.extend(MatchConditions.to_csv_columns())
         columns.extend(PlayerStats.to_csv_columns("p1_"))
@@ -380,7 +379,7 @@ class MatchData:
         return columns
 
     def to_csv_row(self):
-        row: pd.Series = pd.Series([self.startDate, self.player1, self.player2])
+        row: pd.Series = pd.Series([self.startDate, self.player1, self.player2, self.odds1, self.odds2, self.winner])
         row = pd.concat([row, pd.Series(self.matchConditions.to_csv_row())])
         row = pd.concat([row, pd.Series(self.player1Stats.to_csv_row())])
         row = pd.concat([row, pd.Series(self.player2Stats.to_csv_row())])
@@ -496,12 +495,13 @@ def generate_own_data():
         parsed_match.startDate = match_bets['start_date']
         parsed_match.player1 = match_bets['team1']
         parsed_match.player2 = match_bets['team2']
+        parsed_match.odds1 = match_bets['odds1']
+        parsed_match.odds2 = match_bets['odds2']
+        parsed_match.winner = float(player1_match['player_victory'] == 't')
 
         parsed_match.matchConditions.from_row(player1_match)
         parsed_match.player1Stats = player1_stats
         parsed_match.player2Stats = player2_stats
-        parsed_match.player1Stats.odds = match_bets['odds1']
-        parsed_match.player2Stats.odds = match_bets['odds2']
 
         # Team 2 perspective
         parsed_matches.append(MatchData())
@@ -510,6 +510,9 @@ def generate_own_data():
         parsed_match.startDate = match_bets['start_date']
         parsed_match.player1 = match_bets['team2']
         parsed_match.player2 = match_bets['team1']
+        parsed_match.odds1 = match_bets['odds2']
+        parsed_match.odds2 = match_bets['odds1']
+        parsed_match.winner = float(player2_match['player_victory'] == 't')
 
         parsed_match.matchConditions.from_row(player2_match)
         parsed_match.player1Stats = player2_stats
