@@ -11,9 +11,9 @@ RECENT_MATCHES_COUNT = 7
 H2H_MATCHES_COUNT = 3
 
 # Sample data:
-# start_date, end_date,   location, court_surface,prize_money,currency,year, player_id,     player_name, opponent_id,   opponent_name, tournament,        round,                num_sets,sets_won,games_won,games_against,tiebreaks_won,tiebreaks_total,serve_rating,aces,double_faults,first_serve_made,first_serve_attempted,first_serve_points_made,first_serve_points_attempted,second_serve_points_made,second_serve_points_attempted,break_points_saved,break_points_against,service_games_won,return_rating,first_serve_return_points_made,first_serve_return_points_attempted,second_serve_return_points_made,second_serve_return_points_attempted,break_points_made,break_points_attempted,return_games_played,service_points_won,service_points_attempted,return_points_won,return_points_attempted,total_points_won,total_points,duration,player_victory,retirement,seed,won_first_set,doubles,masters,round_num,nation
-# 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, adrian-partl,  A. Partl,    andrej-martin, A. Martin,     kosice_challenger, 2nd Round Qualifying, 2,       0,       3,        12,           0,            0,              149,         0,   5,            27,              44,                   12,                     27,                          4,                       17,                           1,                 7,                   8,                198,          8,                             30,8,14,1,1,7,16,44,16,44,32,88,01:02:00,f,f,,f,f,100,1,Slovakia
-# 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, andrej-martin, A. Martin,   adrian-partl,  A. Partl,      kosice_challenger, 2nd Round Qualifying, 2,       2,       12,       3,            0,            0,              268,         0,   1,            30,              44,                   22,                     30,                          6,                       14,                           0,                 1,                   7,                293,          15,                            27,13,17,6,7,8,28,44,28,44,56,88,01:02:00,t,f,8,t,f,100,1,Slovakia
+# start_date, end_date,   location, court_surface,prize_money,currency,year, player_id,     player_name, opponent_id,   opponent_name, tournament,        round,                num_sets,sets_won,games_won,games_against,tiebreaks_won,tiebreaks_total,serve_rating,aces,double_faults,first_serve_made,first_serve_attempted,first_serve_points_made,first_serve_points_attempted,second_serve_points_made,second_serve_points_attempted,break_points_saved,break_points_against,service_games_won,return_rating,first_serve_return_points_made,first_serve_return_points_attempted,second_serve_return_points_made,second_serve_return_points_attempted,break_points_made,break_points_attempted,return_games_played,service_points_won,service_points_attempted,return_points_won,return_points_attempted,total_points_won,total_points,duration,player_victory,retirement,seed,won_first_set,doubles,masters,round_num,nation # noqa: E501
+# 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, adrian-partl,  A. Partl,    andrej-martin, A. Martin,     kosice_challenger, 2nd Round Qualifying, 2,       0,       3,        12,           0,            0,              149,         0,   5,            27,              44,                   12,                     27,                          4,                       17,                           1,                 7,                   8,                198,          8,                             30,8,14,1,1,7,16,44,16,44,32,88,01:02:00,f,f,,f,f,100,1,Slovakia # noqa: E501
+# 2012-06-11, 2012-06-17, Slovakia, Clay,         30000,      €,       2012, andrej-martin, A. Martin,   adrian-partl,  A. Partl,      kosice_challenger, 2nd Round Qualifying, 2,       2,       12,       3,            0,            0,              268,         0,   1,            30,              44,                   22,                     30,                          6,                       14,                           0,                 1,                   7,                293,          15,                            27,13,17,6,7,8,28,44,28,44,56,88,01:02:00,t,f,8,t,f,100,1,Slovakia # noqa: E501
 
 courtSurfaces: Dict[str, int] = {}
 tournamentIds: Dict[str, int] = {}
@@ -45,36 +45,36 @@ class MatchConditions:
         self.tournamentReputation: float = 0
         self.tournamentRound: float = 0
 
-    def from_row(self, row: pd.Series):
-        self.tournamentStart = tournamentStart_to_float(row['start_date'])
-        self.tournamentId = tournamentId_to_float(row['tournament'])
-        self.tournamentCourtSurface = courtSurface_to_float(row['court_surface'])
+    def from_row(self, row: pd.Series) -> None:
+        self.tournamentStart = tournamentStart_to_float(row["start_date"])
+        self.tournamentId = tournamentId_to_float(row["tournament"])
+        self.tournamentCourtSurface = courtSurface_to_float(row["court_surface"])
 
         # WA: Set convert types because of pandas stupid bullshit
-        self.tournamentReputation = float(utils.base_type(row['masters']))
+        self.tournamentReputation = float(utils.base_type(row["masters"]))
 
         # Rounds are numbered from -2 to 7, where 7 is final - normalize to 0-9, where 0 is final
-        self.tournamentRound = float(7 - utils.base_type(row['round_num']))
+        self.tournamentRound = float(7 - utils.base_type(row["round_num"]))
 
     @staticmethod
-    def to_csv_columns(prefix: str = ''):
+    def to_csv_columns(prefix: str = "") -> List[str]:
         columns: List[str] = [
             f"{prefix}tournamentStart",
             f"{prefix}tournamentId",
             f"{prefix}tournamentCourtSurface",
             f"{prefix}tournamentReputation",
-            f"{prefix}tournamentRound"
+            f"{prefix}tournamentRound",
         ]
 
         return columns
 
-    def to_csv_row(self):
+    def to_csv_row(self) -> List[float]:
         return [
             self.tournamentStart,
             self.tournamentId,
             self.tournamentCourtSurface,
             self.tournamentReputation,
-            self.tournamentRound
+            self.tournamentRound,
         ]
 
 
@@ -114,79 +114,91 @@ class GameStats:
         self.totalPoints: float = 0
         self.wonFirstSet: float = 0
 
-    def from_row(self, row: pd.Series):
-        self.setsWon = row['sets_won']
-        self.setsLost = row['num_sets'] - row['sets_won']
-        self.gamesWon = row['games_won']
-        self.gamesLost = row['games_against']
-        self.tiebreaksWon = row['tiebreaks_won']
-        self.tiebreaksLost = row['tiebreaks_total'] - row['tiebreaks_won']
-        self.serveRating = row['serve_rating']
-        self.aces = row['aces']
-        self.doubleFaults = row['double_faults']
-        self.firstServeMade = row['first_serve_made']
-        self.firstServeAttempted = row['first_serve_attempted']
-        self.firstServePointsMade = row['first_serve_points_made']
-        self.firstServePointsAttempted = row['first_serve_points_attempted']
-        self.secondServePointsMade = row['second_serve_points_made']
-        self.secondServePointsAttempted = row['second_serve_points_attempted']
-        self.breakPointsSaved = row['break_points_saved']
-        self.breakPointsAgainst = row['break_points_against']
-        self.serviceGamesWon = row['service_games_won']
-        self.returnRating = row['return_rating']
-        self.firstServeReturnPointsMade = row['first_serve_return_points_made']
-        self.firstServeReturnPointsAttempted = row['first_serve_return_points_attempted']
-        self.secondServeReturnPointsMade = row['second_serve_return_points_made']
-        self.secondServeReturnPointsAttempted = row['second_serve_return_points_attempted']
-        self.breakPointsMade = row['break_points_made']
-        self.breakPointsAttempted = row['break_points_attempted']
-        self.returnGamesPlayed = row['return_games_played']
-        self.servicePointsWon = row['service_points_won']
-        self.servicePointsAttempted = row['service_points_attempted']
-        self.returnPointsWon = row['return_points_won']
-        self.returnPointsAttempted = row['return_points_attempted']
-        self.totalPointsWon = row['total_points_won']
-        self.totalPoints = row['total_points']
-        self.wonFirstSet = float(row['won_first_set'] == 't')
+    def from_row(self, row: pd.Series) -> None:
+        self.setsWon = row["sets_won"]
+        self.setsLost = row["num_sets"] - row["sets_won"]
+        self.gamesWon = row["games_won"]
+        self.gamesLost = row["games_against"]
+        self.tiebreaksWon = row["tiebreaks_won"]
+        self.tiebreaksLost = row["tiebreaks_total"] - row["tiebreaks_won"]
+        self.serveRating = row["serve_rating"]
+        self.aces = row["aces"]
+        self.doubleFaults = row["double_faults"]
+        self.firstServeMade = row["first_serve_made"]
+        self.firstServeAttempted = row["first_serve_attempted"]
+        self.firstServePointsMade = row["first_serve_points_made"]
+        self.firstServePointsAttempted = row["first_serve_points_attempted"]
+        self.secondServePointsMade = row["second_serve_points_made"]
+        self.secondServePointsAttempted = row["second_serve_points_attempted"]
+        self.breakPointsSaved = row["break_points_saved"]
+        self.breakPointsAgainst = row["break_points_against"]
+        self.serviceGamesWon = row["service_games_won"]
+        self.returnRating = row["return_rating"]
+        self.firstServeReturnPointsMade = row["first_serve_return_points_made"]
+        self.firstServeReturnPointsAttempted = row[
+            "first_serve_return_points_attempted"
+        ]
+        self.secondServeReturnPointsMade = row["second_serve_return_points_made"]
+        self.secondServeReturnPointsAttempted = row[
+            "second_serve_return_points_attempted"
+        ]
+        self.breakPointsMade = row["break_points_made"]
+        self.breakPointsAttempted = row["break_points_attempted"]
+        self.returnGamesPlayed = row["return_games_played"]
+        self.servicePointsWon = row["service_points_won"]
+        self.servicePointsAttempted = row["service_points_attempted"]
+        self.returnPointsWon = row["return_points_won"]
+        self.returnPointsAttempted = row["return_points_attempted"]
+        self.totalPointsWon = row["total_points_won"]
+        self.totalPoints = row["total_points"]
+        self.wonFirstSet = float(row["won_first_set"] == "t")
 
-    def aggregate_from_table(self, table: pd.DataFrame):
+    def aggregate_from_table(self, table: pd.DataFrame) -> None:
         # Avg stats from table
-        self.setsWon = table['sets_won'].mean()
-        self.setsLost = table['num_sets'].mean() - table['sets_won'].mean()
-        self.gamesWon = table['games_won'].mean()
-        self.gamesLost = table['games_against'].mean()
-        self.tiebreaksWon = table['tiebreaks_won'].mean()
-        self.tiebreaksLost = table['tiebreaks_total'].mean() - table['tiebreaks_won'].mean()
-        self.serveRating = table['serve_rating'].mean()
-        self.aces = table['aces'].mean()
-        self.doubleFaults = table['double_faults'].mean()
-        self.firstServeMade = table['first_serve_made'].mean()
-        self.firstServeAttempted = table['first_serve_attempted'].mean()
-        self.firstServePointsMade = table['first_serve_points_made'].mean()
-        self.firstServePointsAttempted = table['first_serve_points_attempted'].mean()
-        self.secondServePointsMade = table['second_serve_points_made'].mean()
-        self.secondServePointsAttempted = table['second_serve_points_attempted'].mean()
-        self.breakPointsSaved = table['break_points_saved'].mean()
-        self.breakPointsAgainst = table['break_points_against'].mean()
-        self.serviceGamesWon = table['service_games_won'].mean()
-        self.returnRating = table['return_rating'].mean()
-        self.firstServeReturnPointsMade = table['first_serve_return_points_made'].mean()
-        self.firstServeReturnPointsAttempted = table['first_serve_return_points_attempted'].mean()
-        self.secondServeReturnPointsMade = table['second_serve_return_points_made'].mean()
-        self.secondServeReturnPointsAttempted = table['second_serve_return_points_attempted'].mean()
-        self.breakPointsMade = table['break_points_made'].mean()
-        self.breakPointsAttempted = table['break_points_attempted'].mean()
-        self.returnGamesPlayed = table['return_games_played'].mean()
-        self.servicePointsWon = table['service_points_won'].mean()
-        self.servicePointsAttempted = table['service_points_attempted'].mean()
-        self.returnPointsWon = table['return_points_won'].mean()
-        self.returnPointsAttempted = table['return_points_attempted'].mean()
-        self.totalPointsWon = table['total_points_won'].mean()
-        self.totalPoints = table['total_points'].mean()
-        self.wonFirstSet = len(table[table['won_first_set'] == 't']) / len(table)
+        self.setsWon = table["sets_won"].mean()
+        self.setsLost = table["num_sets"].mean() - table["sets_won"].mean()
+        self.gamesWon = table["games_won"].mean()
+        self.gamesLost = table["games_against"].mean()
+        self.tiebreaksWon = table["tiebreaks_won"].mean()
+        self.tiebreaksLost = (
+            table["tiebreaks_total"].mean() - table["tiebreaks_won"].mean()
+        )
+        self.serveRating = table["serve_rating"].mean()
+        self.aces = table["aces"].mean()
+        self.doubleFaults = table["double_faults"].mean()
+        self.firstServeMade = table["first_serve_made"].mean()
+        self.firstServeAttempted = table["first_serve_attempted"].mean()
+        self.firstServePointsMade = table["first_serve_points_made"].mean()
+        self.firstServePointsAttempted = table["first_serve_points_attempted"].mean()
+        self.secondServePointsMade = table["second_serve_points_made"].mean()
+        self.secondServePointsAttempted = table["second_serve_points_attempted"].mean()
+        self.breakPointsSaved = table["break_points_saved"].mean()
+        self.breakPointsAgainst = table["break_points_against"].mean()
+        self.serviceGamesWon = table["service_games_won"].mean()
+        self.returnRating = table["return_rating"].mean()
+        self.firstServeReturnPointsMade = table["first_serve_return_points_made"].mean()
+        self.firstServeReturnPointsAttempted = table[
+            "first_serve_return_points_attempted"
+        ].mean()
+        self.secondServeReturnPointsMade = table[
+            "second_serve_return_points_made"
+        ].mean()
+        self.secondServeReturnPointsAttempted = table[
+            "second_serve_return_points_attempted"
+        ].mean()
+        self.breakPointsMade = table["break_points_made"].mean()
+        self.breakPointsAttempted = table["break_points_attempted"].mean()
+        self.returnGamesPlayed = table["return_games_played"].mean()
+        self.servicePointsWon = table["service_points_won"].mean()
+        self.servicePointsAttempted = table["service_points_attempted"].mean()
+        self.returnPointsWon = table["return_points_won"].mean()
+        self.returnPointsAttempted = table["return_points_attempted"].mean()
+        self.totalPointsWon = table["total_points_won"].mean()
+        self.totalPoints = table["total_points"].mean()
+        self.wonFirstSet = len(table[table["won_first_set"] == "t"]) / len(table)
 
     @staticmethod
-    def to_csv_columns(prefix: str = ''):
+    def to_csv_columns(prefix: str = "") -> List[str]:
         columns: List[str] = [
             f"{prefix}setsWon",
             f"{prefix}setsLost",
@@ -220,11 +232,11 @@ class GameStats:
             f"{prefix}returnPointsAttempted",
             f"{prefix}totalPointsWon",
             f"{prefix}totalPoints",
-            f"{prefix}wonFirstSet"
+            f"{prefix}wonFirstSet",
         ]
         return columns
 
-    def to_csv_row(self):
+    def to_csv_row(self) -> List[float]:
         return [
             self.setsWon,
             self.setsLost,
@@ -258,7 +270,7 @@ class GameStats:
             self.returnPointsAttempted,
             self.totalPointsWon,
             self.totalPoints,
-            self.wonFirstSet
+            self.wonFirstSet,
         ]
 
 
@@ -269,14 +281,14 @@ class MatchStats:
         self.won: float = False
         self.gameStats: GameStats = GameStats()
 
-    def from_row(self, row: pd.Series):
+    def from_row(self, row: pd.Series) -> None:
         self.matchConditions.from_row(row)
-        self.duration = float(utils.duration_to_minutes(row['duration']))
-        self.won = float(row['player_victory'] == 't')
+        self.duration = float(utils.duration_to_minutes(row["duration"]))
+        self.won = float(row["player_victory"] == "t")
         self.gameStats.from_row(row)
 
     @staticmethod
-    def to_csv_columns(prefix: str = ''):
+    def to_csv_columns(prefix: str = "") -> List[str]:
         columns: List[str] = [
             f"{prefix}duration",
             f"{prefix}won",
@@ -287,7 +299,7 @@ class MatchStats:
 
         return columns
 
-    def to_csv_row(self):
+    def to_csv_row(self) -> List[float]:
         row: List[Any] = [
             self.duration,
             self.won,
@@ -306,12 +318,13 @@ class PlayerStats:
         self.playerLosses: float = 0
         self.aggregatedStats: GameStats = GameStats()
 
+        self.odds: float = 0
         self.h2hWins: float = 0
         self.h2hLosses: float = 0
         self.h2hStory: List[MatchStats] = []
 
     @staticmethod
-    def to_csv_columns(prefix: str = ''):
+    def to_csv_columns(prefix: str = "") -> List[str]:
         columns: List[str] = [
             f"{prefix}totalWins",
             f"{prefix}totalLosses",
@@ -329,8 +342,8 @@ class PlayerStats:
 
         return columns
 
-    def to_csv_row(self):
-        row: List[Any] = [
+    def to_csv_row(self) -> List[float]:
+        row: List[float] = [
             self.playerWins,
             self.playerLosses,
             self.h2hWins,
@@ -358,9 +371,9 @@ class MatchData:
     def __init__(self):
         self.matchConditions: MatchConditions = MatchConditions()
 
-        self.startDate: str = ''
-        self.player1: str = ''
-        self.player2: str = ''
+        self.startDate: str = ""
+        self.player1: str = ""
+        self.player2: str = ""
         self.odds1: float = 0
         self.odds2: float = 0
         self.winner: float = 0
@@ -369,8 +382,15 @@ class MatchData:
         self.player2Stats: PlayerStats = PlayerStats()
 
     @staticmethod
-    def to_csv_columns():
-        columns: List[str] = ["startDate", "player1", "player2", "odds1", "odds2", "winner"]
+    def to_csv_columns() -> List[str]:
+        columns: List[str] = [
+            "startDate",
+            "player1",
+            "player2",
+            "odds1",
+            "odds2",
+            "winner",
+        ]
 
         columns.extend(MatchConditions.to_csv_columns())
         columns.extend(PlayerStats.to_csv_columns("p1_"))
@@ -378,8 +398,17 @@ class MatchData:
 
         return columns
 
-    def to_csv_row(self):
-        row: pd.Series = pd.Series([self.startDate, self.player1, self.player2, self.odds1, self.odds2, self.winner])
+    def to_csv_row(self) -> pd.Series:
+        row: pd.Series = pd.Series(
+            [
+                self.startDate,
+                self.player1,
+                self.player2,
+                self.odds1,
+                self.odds2,
+                self.winner,
+            ]
+        )
         row = pd.concat([row, pd.Series(self.matchConditions.to_csv_row())])
         row = pd.concat([row, pd.Series(self.player1Stats.to_csv_row())])
         row = pd.concat([row, pd.Series(self.player2Stats.to_csv_row())])
@@ -387,15 +416,23 @@ class MatchData:
         return row
 
 
-def get_player_stats(player_match_history: pd.DataFrame, versus_player_id: str) -> PlayerStats:
+def get_player_stats(
+    player_match_history: pd.DataFrame, versus_player_id: str
+) -> PlayerStats:
     player_stats: PlayerStats = PlayerStats()
 
     # Count wins and losses (wins are player_victory == 't')
-    player_stats.playerWins = float(player_match_history[player_match_history['player_victory'] == 't'].shape[0])
-    player_stats.playerLosses = float(len(player_match_history) - player_stats.playerWins)
+    player_stats.playerWins = float(
+        player_match_history[player_match_history["player_victory"] == "t"].shape[0]
+    )
+    player_stats.playerLosses = float(
+        len(player_match_history) - player_stats.playerWins
+    )
 
     # Get RECENT_MATCHES_COUNT last matches from history
-    player_matches_before: pd.DataFrame = player_match_history.tail(RECENT_MATCHES_COUNT)
+    player_matches_before: pd.DataFrame = player_match_history.tail(
+        RECENT_MATCHES_COUNT
+    )
 
     for _, row in player_matches_before.iterrows():
         player_stats.playerMatchStory.append(MatchStats())
@@ -405,11 +442,15 @@ def get_player_stats(player_match_history: pd.DataFrame, versus_player_id: str) 
     player_stats.aggregatedStats.aggregate_from_table(player_match_history)
 
     # Get h2h matches
-    h2h_matches: pd.DataFrame = player_match_history[(player_match_history['opponent_id'] == versus_player_id)]
-    h2h_matches = h2h_matches.sort_values(by=['start_date'])
+    h2h_matches: pd.DataFrame = player_match_history[
+        (player_match_history["opponent_id"] == versus_player_id)
+    ]
+    h2h_matches = h2h_matches.sort_values(by=["start_date"])
 
     # Get number of wins in h2h matches
-    player_stats.h2hWins = float(h2h_matches[h2h_matches['player_victory'] == 't'].shape[0])
+    player_stats.h2hWins = float(
+        h2h_matches[h2h_matches["player_victory"] == "t"].shape[0]
+    )
     player_stats.h2hLosses = float(len(h2h_matches) - player_stats.h2hWins)
 
     # Get H2H_MATCHES_COUNT last matches between the two players
@@ -420,30 +461,29 @@ def get_player_stats(player_match_history: pd.DataFrame, versus_player_id: str) 
     return player_stats
 
 
-def generate_own_data():
-    matches = pd.read_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, sep=',')
-    bets = pd.read_csv(paths.ORG_CLEAN_BETS_DATASET_PATH, sep=',')
+def generate_own_data() -> pd.DataFrame:
+    matches = pd.read_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, sep=",")
+    bets = pd.read_csv(paths.ORG_CLEAN_BETS_DATASET_PATH, sep=",")
 
     # Sort by date
-    matches = matches.sort_values(by=['start_date'])
-    bets = bets.sort_values(by=['start_date'])
+    matches = matches.sort_values(by=["start_date"])
+    bets = bets.sort_values(by=["start_date"])
     # matches.to_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, index=False)
 
     # Create a list of tables, each containing matches of a single player (by player_id)
-    players = matches['player_id'].unique()
+    players = matches["player_id"].unique()
     players_matches: Dict[str, pd.DataFrame] = {}
 
     print("Splitting matches by player...")
 
     for player in tqdm(players):
-        player_matches = matches[matches['player_id'] == player]
+        player_matches = matches[matches["player_id"] == player]
         players_matches[player] = player_matches
 
     # For each match from bets, collect features and pack them up into a MatchData object
     parsed_matches: List[MatchData] = []
 
     print("Parsing matches...")
-    MAX_ITERS: int = 100
 
     for index, match_bets in tqdm(bets.iterrows(), total=bets.shape[0]):
         # if MAX_ITERS > 0:
@@ -451,28 +491,33 @@ def generate_own_data():
         # else:
         #     break
 
-        ### Find the stats of the match
+        # Find the stats of the match
         # Find the match in the player stats
-        if match_bets['team1'] not in players_matches or match_bets['team2'] not in players_matches:
+        if (
+            match_bets["team1"] not in players_matches
+            or match_bets["team2"] not in players_matches
+        ):
             continue
 
-        player1_matches: pd.DataFrame = players_matches[match_bets['team1']]
-        player2_matches: pd.DataFrame = players_matches[match_bets['team2']]
+        player1_matches: pd.DataFrame = players_matches[match_bets["team1"]]
+        player2_matches: pd.DataFrame = players_matches[match_bets["team2"]]
 
         # Find the match in the player stats
         player1_match_id = player1_matches.index[
-            (player1_matches['start_date'] == match_bets['start_date']) &
-            (player1_matches['player_id'] == match_bets['team1']) &
-            (player1_matches['opponent_id'] == match_bets['team2'])]
+            (player1_matches["start_date"] == match_bets["start_date"])
+            & (player1_matches["player_id"] == match_bets["team1"])
+            & (player1_matches["opponent_id"] == match_bets["team2"])
+        ]
 
         # If the match is not found, skip
         if len(player1_match_id) == 0:
             continue
 
         player2_match_id = player2_matches.index[
-            (player2_matches['start_date'] == match_bets['start_date']) &
-            (player2_matches['player_id'] == match_bets['team2']) &
-            (player2_matches['opponent_id'] == match_bets['team1'])]
+            (player2_matches["start_date"] == match_bets["start_date"])
+            & (player2_matches["player_id"] == match_bets["team2"])
+            & (player2_matches["opponent_id"] == match_bets["team1"])
+        ]
 
         if len(player2_match_id) == 0:
             continue
@@ -480,24 +525,24 @@ def generate_own_data():
         player1_match = player1_matches.loc[player1_match_id[0]]
         player2_match = player2_matches.loc[player2_match_id[0]]
 
-        player1_matches_before = player1_matches.loc[:player1_match_id[0]]
-        player2_matches_before = player2_matches.loc[:player2_match_id[0]]
+        player1_matches_before = player1_matches.loc[: player1_match_id[0]]
+        player2_matches_before = player2_matches.loc[: player2_match_id[0]]
 
         # Generate player stats from match history
-        player1_stats = get_player_stats(player1_matches_before, match_bets['team2'])
-        player2_stats = get_player_stats(player2_matches_before, match_bets['team1'])
+        player1_stats = get_player_stats(player1_matches_before, match_bets["team2"])
+        player2_stats = get_player_stats(player2_matches_before, match_bets["team1"])
 
-        #### Fill the match data
+        # Fill the match data
         # Team 1 perspective
         parsed_matches.append(MatchData())
         parsed_match: MatchData = parsed_matches[-1]
 
-        parsed_match.startDate = match_bets['start_date']
-        parsed_match.player1 = match_bets['team1']
-        parsed_match.player2 = match_bets['team2']
-        parsed_match.odds1 = match_bets['odds1']
-        parsed_match.odds2 = match_bets['odds2']
-        parsed_match.winner = float(player1_match['player_victory'] == 't')
+        parsed_match.startDate = match_bets["start_date"]
+        parsed_match.player1 = match_bets["team1"]
+        parsed_match.player2 = match_bets["team2"]
+        parsed_match.odds1 = match_bets["odds1"]
+        parsed_match.odds2 = match_bets["odds2"]
+        parsed_match.winner = float(player1_match["player_victory"] == "t")
 
         parsed_match.matchConditions.from_row(player1_match)
         parsed_match.player1Stats = player1_stats
@@ -505,20 +550,20 @@ def generate_own_data():
 
         # Team 2 perspective
         parsed_matches.append(MatchData())
-        parsed_match: MatchData = parsed_matches[-1]
+        parsed_match = parsed_matches[-1]
 
-        parsed_match.startDate = match_bets['start_date']
-        parsed_match.player1 = match_bets['team2']
-        parsed_match.player2 = match_bets['team1']
-        parsed_match.odds1 = match_bets['odds2']
-        parsed_match.odds2 = match_bets['odds1']
-        parsed_match.winner = float(player2_match['player_victory'] == 't')
+        parsed_match.startDate = match_bets["start_date"]
+        parsed_match.player1 = match_bets["team2"]
+        parsed_match.player2 = match_bets["team1"]
+        parsed_match.odds1 = match_bets["odds2"]
+        parsed_match.odds2 = match_bets["odds1"]
+        parsed_match.winner = float(player2_match["player_victory"] == "t")
 
         parsed_match.matchConditions.from_row(player2_match)
         parsed_match.player1Stats = player2_stats
         parsed_match.player2Stats = player1_stats
-        parsed_match.player1Stats.odds = match_bets['odds2']
-        parsed_match.player2Stats.odds = match_bets['odds1']
+        parsed_match.player1Stats.odds = match_bets["odds2"]
+        parsed_match.player2Stats.odds = match_bets["odds1"]
 
     # Print tournamentIds and courtSurfaces ids
     print("Tournaments:")
@@ -554,10 +599,10 @@ def clean_data():
     Paths from paths.py are used in this function.
     :return:
     """
-    matches = pd.read_csv(paths.ORG_DATASET_MATCHES_CSV_PATH, sep=',')
-    bets1 = pd.read_csv(paths.ORG_DATASET_BETS1_CSV_PATH, sep=',')
-    bets2 = pd.read_csv(paths.ORG_DATASET_BETS2_CSV_PATH, sep=',')
-    bets3 = pd.read_csv(paths.ORG_DATASET_BETS3_CSV_PATH, sep=',')
+    matches = pd.read_csv(paths.ORG_DATASET_MATCHES_CSV_PATH, sep=",")
+    bets1 = pd.read_csv(paths.ORG_DATASET_BETS1_CSV_PATH, sep=",")
+    bets2 = pd.read_csv(paths.ORG_DATASET_BETS2_CSV_PATH, sep=",")
+    bets3 = pd.read_csv(paths.ORG_DATASET_BETS3_CSV_PATH, sep=",")
 
     # Iterate over all matches and remove all matches that don't match the following criteria:
     # - doesn't contain retirement (retirement == 'f')
@@ -569,20 +614,20 @@ def clean_data():
 
     # Filter out all stats
     # matches = matches[matches['player_id'] == 'rafael-nadal']
-    matches = matches[matches['prize_money'].notnull()]
-    matches = matches[matches['retirement'] == 'f']
-    matches = matches[matches['doubles'] == 'f']
-    matches = matches[matches['serve_rating'].notnull()]
-    matches = matches[matches['duration'].notnull()]
+    matches = matches[matches["prize_money"].notnull()]
+    matches = matches[matches["retirement"] == "f"]
+    matches = matches[matches["doubles"] == "f"]
+    matches = matches[matches["serve_rating"].notnull()]
+    matches = matches[matches["duration"].notnull()]
 
     # Match with betting data (match is identified by start_date, player_id, opponent_id)
     # Marge all bet datasets (they have the same columns)
     bets = pd.concat([bets1, bets2, bets3])
-    bets = bets.drop_duplicates(subset=['start_date', 'team1', 'team2'], keep='first')
+    bets = bets.drop_duplicates(subset=["start_date", "team1", "team2"], keep="first")
 
     # Leave only following columns: start_date,team1,team2,odds1,odds2
-    bets = bets[['start_date', 'team1', 'team2', 'odds1', 'odds2']]
-    bets.sort_values(by=['start_date', 'team1', 'team2'])
+    bets = bets[["start_date", "team1", "team2", "odds1", "odds2"]]
+    bets.sort_values(by=["start_date", "team1", "team2"])
 
     # Merge matches with bets by (start_date, player_id, opponent_id) with (start_date, team1, team2)
     # Join only the columns: odds1,odds2
@@ -594,8 +639,10 @@ def clean_data():
     bets.to_csv(paths.ORG_CLEAN_BETS_DATASET_PATH, index=False)
 
     # Zip the cleaned datasets
-    utils.zip_files([paths.ORG_CLEAN_STATS_DATASET_PATH, paths.ORG_CLEAN_BETS_DATASET_PATH],
-                    paths.ORG_CLEAN_DATASET_ZIP_PATH)
+    utils.zip_files(
+        [paths.ORG_CLEAN_STATS_DATASET_PATH, paths.ORG_CLEAN_BETS_DATASET_PATH],
+        paths.ORG_CLEAN_DATASET_ZIP_PATH,
+    )
 
     # Delete the unzipped datasets
     os.remove(paths.ORG_CLEAN_STATS_DATASET_PATH)
@@ -605,16 +652,20 @@ def clean_data():
 def generate_clean_org_dataset():
     # Check if org zip dataset exists
     if not os.path.exists(paths.ORG_DATASET_ZIP_PATH):
-        assert False, f'Org zip file not found at {os.path.normpath(paths.ORG_DATASET_ZIP_PATH)}'
+        assert (
+            False
+        ), f"Org zip file not found at {os.path.normpath(paths.ORG_DATASET_ZIP_PATH)}"
     else:
-        print(f'Org zip file found at {os.path.normpath(paths.ORG_DATASET_ZIP_PATH)}')
+        print(f"Org zip file found at {os.path.normpath(paths.ORG_DATASET_ZIP_PATH)}")
 
     # Check if the datasets already exist and notify the user
     # Don't delete them every time to save SSD read/write cycles
     if os.path.exists(paths.ORG_DATASET_DIR):
         # shutil.rmtree(paths.ORG_DATASET_DIR)
-        assert False, f'Org dataset folder already exists at {os.path.normpath(paths.ORG_DATASET_DIR)}.' \
-                      f' If you want to regenerate the dataset, please remove the folder manually.'
+        assert False, (
+            f"Org dataset folder already exists at {os.path.normpath(paths.ORG_DATASET_DIR)}."
+            f" If you want to regenerate the dataset, please remove the folder manually."
+        )
 
     if os.path.exists(paths.ORG_CLEAN_DATASET_ZIP_PATH):
         os.remove(paths.ORG_CLEAN_DATASET_ZIP_PATH)
@@ -629,16 +680,22 @@ def generate_clean_org_dataset():
 def generate_own_dataset():
     # Check if org clean zip dataset exists
     if not os.path.exists(paths.ORG_CLEAN_DATASET_ZIP_PATH):
-        assert False, f'Org clean zip file not found at {os.path.normpath(paths.ORG_CLEAN_DATASET_ZIP_PATH)}'
+        assert (
+            False
+        ), f"Org clean zip file not found at {os.path.normpath(paths.ORG_CLEAN_DATASET_ZIP_PATH)}"
     else:
-        print(f'Org clean zip file found at {os.path.normpath(paths.ORG_CLEAN_DATASET_ZIP_PATH)}')
+        print(
+            f"Org clean zip file found at {os.path.normpath(paths.ORG_CLEAN_DATASET_ZIP_PATH)}"
+        )
 
     # Check if the datasets already exist and notify the user
     # Don't delete them every time to save SSD read/write cycles
     if os.path.exists(paths.OWN_DATASET_DIR):
         # shutil.rmtree(paths.OWN_DATASET_DIR)
-        assert False, f'Own dataset folder already exists at {os.path.normpath(paths.OWN_DATASET_DIR)}.' \
-                      f' If you want to regenerate the dataset, please remove the folder manually.'
+        assert False, (
+            f"Own dataset folder already exists at {os.path.normpath(paths.OWN_DATASET_DIR)}."
+            f" If you want to regenerate the dataset, please remove the folder manually."
+        )
 
     if os.path.exists(paths.ORG_CLEAN_DATASET_DIR):
         shutil.rmtree(paths.ORG_CLEAN_DATASET_DIR)
@@ -653,6 +710,6 @@ def generate_own_dataset():
     generate_own_data()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # generate_clean_org_dataset()
     generate_own_dataset()
