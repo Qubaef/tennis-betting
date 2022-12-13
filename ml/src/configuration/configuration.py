@@ -1,9 +1,9 @@
 import os
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Any
 
 import wandb
-from omegaconf import SI, OmegaConf
+from omegaconf import ListConfig, DictConfig, OmegaConf, MissingMandatoryValue, SI, OmegaConf, MISSING
 
 
 @dataclass
@@ -13,27 +13,27 @@ class Dataset:
 
 @dataclass
 class Model:
-    name: str = "ANN"
-    n_layers: int = 3
-    n_features: int = 881
-    n_classes: int = 2
-    hidden_size: int = 256
-    dropout: float = 0.1
-    time_steps: int = 10
+    name: str = MISSING
+    n_layers: int = MISSING
+    n_features: int = MISSING
+    n_classes: int = MISSING
+    hidden_size: int = MISSING
+    dropout: float = MISSING
+    time_steps: int = MISSING
 
 
 @dataclass
 class Training:
-    gpu: int = 0
-    epochs: int = 100
-    batch_size: int = 128
-    num_workers: int = 4
+    gpu: int = MISSING
+    epochs: int = MISSING
+    batch_size: int = MISSING
+    num_workers: int = MISSING
     seed: Optional[int] = None
-    lr: float = 0.001
-    weight_decay: float = 0
-    factor: float = 0.1
-    patience: int = 10
-    threshold: float = 0.0001
+    lr: float = MISSING
+    weight_decay: float = MISSING
+    factor: float = MISSING
+    patience: int = MISSING
+    threshold: float = MISSING
 
 
 @dataclass
@@ -46,13 +46,24 @@ class Config:
 
 
 class ConfigStore(type):
-    cfg: Optional[Config] = None
+    cfg: Config = OmegaConf.structured(Config)
 
     @staticmethod
-    def load(path: str) -> None:
-        cfg: Config = OmegaConf.structured(Config)
+    def load(path: str):
+        cfg = OmegaConf.structured(Config)
         cfg_raw = OmegaConf.load(path)
-        ConfigStore.cfg = OmegaConf.merge(cfg, cfg_raw)
+        cfg = OmegaConf.merge(cfg, cfg_raw)
+        ConfigStore.validate(cfg)
+        ConfigStore.cfg = cfg
+
+    @staticmethod
+    def validate(cfg: Any) -> None:
+        if isinstance(cfg, ListConfig):
+            for x in cfg:
+                ConfigStore.validate(x)
+        elif isinstance(cfg, DictConfig):
+            for _, v in cfg.items():
+                ConfigStore.validate(v)
 
     @staticmethod
     def sweep_override(sweep_config: wandb.sdk.wandb_config.Config) -> None:
