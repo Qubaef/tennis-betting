@@ -13,7 +13,7 @@ class Dataset:
 
 @dataclass
 class Model:
-    name: str = "ANN"
+    name: str = MISSING
     n_layers: int = MISSING
     n_features: int = MISSING
     n_classes: int = MISSING
