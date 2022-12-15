@@ -1,4 +1,4 @@
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Tuple
 
 import torch
 import torch.utils.data
@@ -98,16 +98,18 @@ def train_epoch(training: TrainingData) -> float:
     return loss_sum / len(training.dataloaders[Phase.TRAIN])
 
 
-def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> float:
+def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> Tuple[float, float]:
     """
     Validate the model for one epoch
     :param training: Dataclass containing all the training data
     :param phase: phase to validate on (default: val)
-    :return: Average loss for the epoch
+    :return: Average loss for the epoch and accuracy
     """
     training.model.eval()
 
     loss_sum = 0
+    guessed_scores_num = 0
+
     for i, data in enumerate(training.dataloaders[phase]):
         inputs, targets = data
         outputs = training.model(inputs)
@@ -116,4 +118,9 @@ def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> float:
         loss_sum += loss.item()
         wandb.log({"val_batch_loss": loss.item()})
 
-    return loss_sum / len(training.dataloaders[phase])
+        guesses = torch.argmax(outputs, dim=1)
+        guessed_scores_num += torch.sum(guesses == targets).item()
+
+    acc: float = guessed_scores_num / (len(training.dataloaders[phase].dataset))
+
+    return loss_sum / len(training.dataloaders[phase]), acc

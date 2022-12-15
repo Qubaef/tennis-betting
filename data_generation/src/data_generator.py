@@ -195,7 +195,11 @@ class GameStats:
         self.returnPointsAttempted = table["return_points_attempted"].mean()
         self.totalPointsWon = table["total_points_won"].mean()
         self.totalPoints = table["total_points"].mean()
-        self.wonFirstSet = len(table[table["won_first_set"] == "t"]) / len(table)
+
+        if len(table) > 0:
+            self.wonFirstSet = len(table[table["won_first_set"] == "t"]) / len(table)
+        else:
+            self.wonFirstSet = 0
 
     @staticmethod
     def to_csv_columns(prefix: str = "") -> List[str]:
@@ -377,6 +381,8 @@ class MatchData:
         self.odds1: float = 0
         self.odds2: float = 0
         self.winner: float = 0
+        self.setsPlayed: float = 0
+        self.gamesPlayed: float = 0
 
         self.player1Stats: PlayerStats = PlayerStats()
         self.player2Stats: PlayerStats = PlayerStats()
@@ -390,6 +396,8 @@ class MatchData:
             "odds1",
             "odds2",
             "winner",
+            "setsPlayed",
+            "gamesPlayed",
         ]
 
         columns.extend(MatchConditions.to_csv_columns())
@@ -407,6 +415,8 @@ class MatchData:
                 self.odds1,
                 self.odds2,
                 self.winner,
+                self.setsPlayed,
+                self.gamesPlayed,
             ]
         )
         row = pd.concat([row, pd.Series(self.matchConditions.to_csv_row())])
@@ -528,6 +538,10 @@ def generate_own_data() -> pd.DataFrame:
         player1_matches_before = player1_matches.loc[: player1_match_id[0]]
         player2_matches_before = player2_matches.loc[: player2_match_id[0]]
 
+        # Exclude the match from the before matches (remove by index)
+        player1_matches_before = player1_matches_before.drop(player1_match_id[0])
+        player2_matches_before = player2_matches_before.drop(player2_match_id[0])
+
         # Generate player stats from match history
         player1_stats = get_player_stats(player1_matches_before, match_bets["team2"])
         player2_stats = get_player_stats(player2_matches_before, match_bets["team1"])
@@ -543,6 +557,8 @@ def generate_own_data() -> pd.DataFrame:
         parsed_match.odds1 = match_bets["odds1"]
         parsed_match.odds2 = match_bets["odds2"]
         parsed_match.winner = float(player1_match["player_victory"] == "t")
+        parsed_match.setsPlayed = float(player1_match["num_sets"])
+        parsed_match.gamesPlayed = float(player1_match["games_won"] + player1_match["games_against"])
 
         parsed_match.matchConditions.from_row(player1_match)
         parsed_match.player1Stats = player1_stats
@@ -558,6 +574,8 @@ def generate_own_data() -> pd.DataFrame:
         parsed_match.odds1 = match_bets["odds2"]
         parsed_match.odds2 = match_bets["odds1"]
         parsed_match.winner = float(player2_match["player_victory"] == "t")
+        parsed_match.setsPlayed = float(player2_match["num_sets"])
+        parsed_match.gamesPlayed = float(player2_match["games_won"] + player2_match["games_against"])
 
         parsed_match.matchConditions.from_row(player2_match)
         parsed_match.player1Stats = player2_stats
