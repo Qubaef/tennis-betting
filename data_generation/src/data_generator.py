@@ -195,11 +195,7 @@ class GameStats:
         self.returnPointsAttempted = table["return_points_attempted"].mean()
         self.totalPointsWon = table["total_points_won"].mean()
         self.totalPoints = table["total_points"].mean()
-
-        if len(table) > 0:
-            self.wonFirstSet = len(table[table["won_first_set"] == "t"]) / len(table)
-        else:
-            self.wonFirstSet = 0
+        self.wonFirstSet = len(table[table["won_first_set"] == "t"]) / len(table)
 
     @staticmethod
     def to_csv_columns(prefix: str = "") -> List[str]:
@@ -431,6 +427,9 @@ def get_player_stats(
 ) -> PlayerStats:
     player_stats: PlayerStats = PlayerStats()
 
+    if len(player_match_history) == 0:
+        return player_stats
+
     # Count wins and losses (wins are player_victory == 't')
     player_stats.playerWins = float(
         player_match_history[player_match_history["player_victory"] == "t"].shape[0]
@@ -494,6 +493,8 @@ def generate_own_data() -> pd.DataFrame:
     parsed_matches: List[MatchData] = []
 
     print("Parsing matches...")
+
+    MAX_ITERS = 100
 
     for index, match_bets in tqdm(bets.iterrows(), total=bets.shape[0]):
         # if MAX_ITERS > 0:
