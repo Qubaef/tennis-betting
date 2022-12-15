@@ -22,11 +22,15 @@ from ml.src.trainingUtils import (
     val_epoch,
 )
 
+# "online" to send data to wandb server
+# "offline" to save data locally, and optionally sync them later with `wandb sync`
+# "disabled" to mock the wandb API and not store any data
+WANDB_MODE = "disabled"
 
 def train():
     cfg = ConfigStore.cfg
     with wandb.init(
-        entity="pg-pug-tennis-betting", project="tennis-betting", config=cfg
+        entity="pg-pug-tennis-betting", project="tennis-betting", mode=WANDB_MODE, config=cfg
     ):
 
         if ConfigStore.cfg is None:
@@ -54,8 +58,9 @@ def train():
             train_epoch_loss = train_epoch(training)
             wandb.log({"train_epoch_loss": train_epoch_loss})
 
-            val_epoch_loss = val_epoch(training)
+            val_epoch_loss, val_epoch_acc = val_epoch(training)
             wandb.log({"val_epoch_loss": val_epoch_loss})
+            wandb.log({"val_epoch_acc": val_epoch_acc})
 
             training.update_best(val_epoch_loss)
 
@@ -68,7 +73,7 @@ def train():
 
 def main():
     root_path = os.path.abspath(f"{os.path.dirname(os.path.abspath(__file__))}/../../")
-    config_path = f"{root_path}/ml/config/config.yaml"
+    config_path = f"{root_path}/ml/config/sweep-conf.yaml"
 
     ConfigStore.load(config_path)
     cfg = ConfigStore.cfg
