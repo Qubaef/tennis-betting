@@ -475,7 +475,7 @@ def generate_own_data() -> pd.DataFrame:
     bets = pd.read_csv(paths.ORG_CLEAN_BETS_DATASET_PATH, sep=",")
 
     # Sort by date
-    matches = matches.sort_values(by=["start_date"])
+    matches = matches.sort_values(by=["start_date", "round_num"], ascending=[True, True])
     bets = bets.sort_values(by=["start_date"])
     # matches.to_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, index=False)
 

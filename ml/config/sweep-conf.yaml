@@ -6,7 +6,7 @@ dataset:
 training:
   gpu: 0
   epochs: 100
-  batch_size: 8
+  batch_size: 256
   num_workers: 0
   seed:
   lr: 0.001
