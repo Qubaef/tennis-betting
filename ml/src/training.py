@@ -65,8 +65,9 @@ def train():
             training.update_best(val_epoch_loss)
 
         # Make test run
-        test_epoch_loss = val_epoch(training, Phase.TEST)
+        test_epoch_loss, test_epoch_acc = val_epoch(training, Phase.TEST)
         wandb.log({"test_epoch_loss": test_epoch_loss})
+        wandb.log({"test_epoch_acc": test_epoch_acc})
         # Save model TODO: add better model name and consider using artifact system
         torch.save(model, os.path.join(wandb.run.dir, "model.pt"))
 
