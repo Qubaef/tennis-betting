@@ -22,10 +22,12 @@ class TennisDataset(Dataset):
             self.data = self.data[self.data["startDate"] >= "2018-01-01"]
         self.label = self.data["winner"].to_numpy().astype(np.int64)
         self.data = self.data.drop(
-            ["winner", "startDate", "player1", "player2", "setsPlayed", "gamesPlayed"], axis=1
+            ["winner", "startDate", "player1", "player2", "setsPlayed", "gamesPlayed"],
+            axis=1,
         )
         self.data = self.data.to_numpy().astype(np.float32)
         self.data = torch.from_numpy(self.data)
+        # convert odds from prob to reward. odds are in data[0] and data[1]
         self.label = torch.tensor(self.label)
         if torch.cuda.is_available():
             self.data = self.data.cuda(device(f"cuda:{cfg.training.gpu}"))

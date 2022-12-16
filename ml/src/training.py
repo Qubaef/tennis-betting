@@ -20,17 +20,22 @@ from ml.src.trainingUtils import (
     create_scheduler,
     train_epoch,
     val_epoch,
+    print_metrics,
 )
 
 # "online" to send data to wandb server
 # "offline" to save data locally, and optionally sync them later with `wandb sync`
 # "disabled" to mock the wandb API and not store any data
-WANDB_MODE = "disabled"
+WANDB_MODE = "offline"
+
 
 def train():
     cfg = ConfigStore.cfg
     with wandb.init(
-        entity="pg-pug-tennis-betting", project="tennis-betting", mode=WANDB_MODE, config=cfg
+        entity="pg-pug-tennis-betting",
+        project="tennis-betting",
+        mode=WANDB_MODE,
+        config=cfg,
     ):
 
         if ConfigStore.cfg is None:
@@ -55,19 +60,24 @@ def train():
         training = TrainingData(cfg, dataloaders, model, loss, optimizer, scheduler)
 
         for _ in tqdm(range(cfg.training.epochs)):
-            train_epoch_loss = train_epoch(training)
-            wandb.log({"train_epoch_loss": train_epoch_loss})
+            training_metrics = train_epoch(training)
+            print_metrics(
+                training_metrics,
+                len(training.dataloaders[Phase.TRAIN]),
+                wandb,
+                "Training",
+            )
 
-            val_epoch_loss, val_epoch_acc = val_epoch(training)
-            wandb.log({"val_epoch_loss": val_epoch_loss})
-            wandb.log({"val_epoch_acc": val_epoch_acc})
+            val_metrics = val_epoch(training)
+            print_metrics(val_metrics, len(dataloaders[Phase.VAL]), wandb, "val")
 
-            training.update_best(val_epoch_loss)
+            training.update_best(val_metrics["loss"])
 
         # Make test run
-        test_epoch_loss, test_epoch_acc = val_epoch(training, Phase.TEST)
-        wandb.log({"test_epoch_loss": test_epoch_loss})
-        wandb.log({"test_epoch_acc": test_epoch_acc})
+        test_metrics = val_epoch(training, Phase.TEST)
+        print_metrics(
+            test_metrics, len(training.dataloaders[Phase.TEST]), wandb, "Test"
+        )
         # Save model TODO: add better model name and consider using artifact system
         torch.save(model, os.path.join(wandb.run.dir, "model.pt"))
 

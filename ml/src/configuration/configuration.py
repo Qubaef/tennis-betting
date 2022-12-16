@@ -3,7 +3,13 @@ from dataclasses import dataclass, field
 from typing import Optional, Any
 
 import wandb
-from omegaconf import ListConfig, DictConfig, OmegaConf, MissingMandatoryValue, SI, OmegaConf, MISSING
+from omegaconf import (
+    ListConfig,
+    DictConfig,
+    SI,
+    OmegaConf,
+    MISSING,
+)
 
 
 @dataclass
@@ -49,7 +55,7 @@ class ConfigStore(type):
     cfg: Config = OmegaConf.structured(Config)
 
     @staticmethod
-    def load(path: str):
+    def load(path: str) -> None:
         cfg = OmegaConf.structured(Config)
         cfg_raw = OmegaConf.load(path)
         cfg = OmegaConf.merge(cfg, cfg_raw)

@@ -2,5 +2,7 @@ numpy~=1.23.5
 omegaconf==2.3.0
 pandas~=1.5.2
 torch~=1.13.0+cu117
+
+torchmetrics~=0.11.0
 tqdm~=4.64.1
 wandb~=0.13.6

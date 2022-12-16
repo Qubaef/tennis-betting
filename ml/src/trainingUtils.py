@@ -13,6 +13,7 @@ from ml.src.configuration.configuration import (
     Config,
 )
 from ml.src.dataset import TennisDataset
+from torchmetrics import Accuracy
 
 
 def create_loss(cfg: Config) -> torch.nn.Module:
@@ -72,7 +73,41 @@ def create_model(cfg: Config) -> torch.nn.Module:
         raise Exception("Unknown model")
 
 
-def train_epoch(training: TrainingData) -> float:
+def calc_metrics(inputs, outputs, targets, metrics, training):
+    acc = Accuracy(task="multiclass", num_classes=training.cfg.model.n_classes)
+    if torch.cuda.is_available():
+        acc = acc.cuda(training.cfg.training.gpu)
+    metrics["acc"] += acc(outputs, targets).item()
+    metrics["loss"] += training.loss(outputs, targets).item()
+    # Bet of player 0 is on inputs[0] and player 1 is on inputs[1]
+    # avg_bet is avarage of chosen player
+    pick = torch.argmax(outputs, dim=1)
+    correct_pick = (pick == targets).int()
+    odds = inputs[:, pick].diagonal()
+    win = torch.mul(odds, correct_pick).sum() - correct_pick.shape[0]
+    metrics["bet_reward"] += win.item()
+    # win sum is the sum of all correct picks
+    metrics["win_sum"] += correct_pick.sum().item()
+    # loss sum is the sum of all incorrect picks
+    metrics["loss_sum"] += (1 - correct_pick).sum().item()
+    # avg_bet is the average of all odds
+    metrics["avg_bet"] += odds.mean().item()
+    # avg_bet_win is the average of all odds of correct picks
+    metrics["avg_bet_win"] += (odds * correct_pick).sum().item()
+    # avg_bet_loss is the average of all odds of incorrect picks
+    metrics["avg_bet_loss"] += (odds * (1 - correct_pick)).sum().item()
+
+
+def print_metrics(metrics, phase_length, wandb, phase):
+    wandb.log({f"{phase}_loss": metrics["loss"] / phase_length})
+    wandb.log({f"{phase}_acc": metrics["acc"] / phase_length})
+    wandb.log({f"{phase}_avg_bet": metrics["avg_bet"] / phase_length})
+    wandb.log({f"{phase}_avg_bet_win": metrics["avg_bet_win"] / metrics["win_sum"]})
+    wandb.log({f"{phase}_avg_bet_loss": metrics["avg_bet_loss"] / metrics["loss_sum"]})
+    wandb.log({f"{phase}_bet_reward": metrics["bet_reward"]})
+
+
+def train_epoch(training: TrainingData) -> Dict[str, float]:
     """
     Train the model for one epoch
     :param training: Dataclass containing all the training data
@@ -80,7 +115,16 @@ def train_epoch(training: TrainingData) -> float:
     """
     training.model.train()
 
-    loss_sum = 0
+    metrics = {
+        "loss": 0.0,
+        "acc": 0.0,
+        "avg_bet": 0.0,
+        "avg_bet_win": 0.0,
+        "avg_bet_loss": 0.0,
+        "win_sum": 0.0,
+        "loss_sum": 0.0,
+        "bet_reward": 0.0,
+    }
 
     for i, data in enumerate(training.dataloaders[Phase.TRAIN]):
         inputs, targets = data
@@ -92,13 +136,13 @@ def train_epoch(training: TrainingData) -> float:
         loss.backward()
         training.optimizer.step()
 
-        loss_sum += loss.item()
+        calc_metrics(inputs, outputs, targets, metrics, training)
         wandb.log({"train_batch_loss": loss.item()})
 
-    return loss_sum / len(training.dataloaders[Phase.TRAIN])
+    return metrics
 
 
-def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> Tuple[float, float]:
+def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> Dict[str, float]:
     """
     Validate the model for one epoch
     :param training: Dataclass containing all the training data
@@ -107,20 +151,23 @@ def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> Tuple[float, 
     """
     training.model.eval()
 
-    loss_sum = 0
-    guessed_scores_num = 0
-
+    metrics = {
+        "loss": 0.0,
+        "acc": 0.0,
+        "avg_bet": 0.0,
+        "avg_bet_win": 0.0,
+        "avg_bet_loss": 0.0,
+        "win_sum": 0.0,
+        "loss_sum": 0.0,
+        "bet_reward": 0.0,
+    }
     for i, data in enumerate(training.dataloaders[phase]):
         inputs, targets = data
         outputs = training.model(inputs)
 
         loss = training.loss(outputs, targets)
-        loss_sum += loss.item()
+        calc_metrics(inputs, outputs, targets, metrics, training)
         wandb.log({"val_batch_loss": loss.item()})
+        # add to win sum if pick is correct
 
-        guesses = torch.argmax(outputs, dim=1)
-        guessed_scores_num += torch.sum(guesses == targets).item()
-
-    acc: float = guessed_scores_num / (len(training.dataloaders[phase].dataset))
-
-    return loss_sum / len(training.dataloaders[phase]), acc
+    return metrics
