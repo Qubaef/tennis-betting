@@ -555,9 +555,9 @@ def generate_own_data() -> pd.DataFrame:
         parsed_match.startDate = match_bets["start_date"]
         parsed_match.player1 = match_bets["team1"]
         parsed_match.player2 = match_bets["team2"]
-        parsed_match.odds1 = match_bets["odds1"]
-        parsed_match.odds2 = match_bets["odds2"]
-        parsed_match.winner = float(player1_match["player_victory"] == "t")
+        parsed_match.odds1 = 1 / match_bets["odds1"]
+        parsed_match.odds2 = 1 / match_bets["odds2"]
+        parsed_match.winner = 0 if (player1_match["player_victory"] == "t") else 1
         parsed_match.setsPlayed = float(player1_match["num_sets"])
         parsed_match.gamesPlayed = float(player1_match["games_won"] + player1_match["games_against"])
 
@@ -572,9 +572,9 @@ def generate_own_data() -> pd.DataFrame:
         parsed_match.startDate = match_bets["start_date"]
         parsed_match.player1 = match_bets["team2"]
         parsed_match.player2 = match_bets["team1"]
-        parsed_match.odds1 = match_bets["odds2"]
-        parsed_match.odds2 = match_bets["odds1"]
-        parsed_match.winner = float(player2_match["player_victory"] == "t")
+        parsed_match.odds1 = 1 / match_bets["odds2"]
+        parsed_match.odds2 = 1 / match_bets["odds1"]
+        parsed_match.winner = 0 if (player2_match["player_victory"] == "t") else 1
         parsed_match.setsPlayed = float(player2_match["num_sets"])
         parsed_match.gamesPlayed = float(player2_match["games_won"] + player2_match["games_against"])
 
