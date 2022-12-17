@@ -26,7 +26,7 @@ from ml.src.trainingUtils import (
 # "online" to send data to wandb server
 # "offline" to save data locally, and optionally sync them later with `wandb sync`
 # "disabled" to mock the wandb API and not store any data
-WANDB_MODE = "online"
+WANDB_MODE = "disabled"
 
 
 def train():

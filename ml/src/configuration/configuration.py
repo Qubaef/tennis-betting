@@ -40,6 +40,7 @@ class Training:
     factor: float = MISSING
     patience: int = MISSING
     threshold: float = MISSING
+    loss: str = MISSING
 
 
 @dataclass

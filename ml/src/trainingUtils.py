@@ -16,8 +16,26 @@ from ml.src.dataset import TennisDataset
 from torchmetrics import Accuracy
 
 
+class reward_loss(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, outputs, targets, inputs):
+        # Bet of player 0 is on inputs[0] and player 1 is on inputs[1]
+        # avg_bet is avarage of chosen player
+        # loss = output[target] * odd_target
+        odds = inputs[:, targets].diagonal()
+        win = outputs[:, targets].diagonal()
+        return -torch.mul(win, odds).mean()
+
+
 def create_loss(cfg: Config) -> torch.nn.Module:
-    return nn.CrossEntropyLoss()
+    if cfg.training.loss == "reward":
+        return reward_loss()
+    elif cfg.training.loss == "cross_entropy":
+        return torch.nn.CrossEntropyLoss()
+    else:
+        raise Exception("Unknown loss")
 
 
 def create_scheduler(
@@ -78,13 +96,16 @@ def calc_metrics(inputs, outputs, targets, metrics, training):
     if torch.cuda.is_available():
         acc = acc.cuda(training.cfg.training.gpu)
     metrics["acc"] += acc(outputs, targets).item()
-    metrics["loss"] += training.loss(outputs, targets).item()
+    if training.cfg.training.loss == "reward":
+        metrics["loss"] += training.loss(outputs, targets, inputs).item()
+    else:
+        metrics["loss"] += training.loss(outputs, targets).item()
     # Bet of player 0 is on inputs[0] and player 1 is on inputs[1]
     # avg_bet is avarage of chosen player
     pick = torch.argmax(outputs, dim=1)
     correct_pick = (pick == targets).int()
     odds = inputs[:, pick].diagonal()
-    win = torch.mul(odds, correct_pick).sum() - correct_pick.shape[0]
+    win = torch.sub(torch.mul(odds, correct_pick).sum(), correct_pick.shape[0])
     metrics["bet_reward"] += win.item()
     # win sum is the sum of all correct picks
     metrics["win_sum"] += correct_pick.sum().item()
@@ -132,7 +153,10 @@ def train_epoch(training: TrainingData) -> Dict[str, float]:
 
         outputs = training.model(inputs)
 
-        loss = training.loss(outputs, targets)
+        if training.cfg.training.loss == "reward":
+            loss = training.loss(outputs, targets, inputs)
+        else:
+            loss = training.loss(outputs, targets)
         loss.backward()
         training.optimizer.step()
 
@@ -165,7 +189,10 @@ def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> Dict[str, flo
         inputs, targets = data
         outputs = training.model(inputs)
 
-        loss = training.loss(outputs, targets)
+        if training.cfg.training.loss == "reward":
+            loss = training.loss(outputs, targets, inputs)
+        else:
+            loss = training.loss(outputs, targets)
         calc_metrics(inputs, outputs, targets, metrics, training)
         wandb.log({"val_batch_loss": loss.item()})
         # add to win sum if pick is correct
