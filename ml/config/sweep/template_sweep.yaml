@@ -21,7 +21,7 @@ training:
 model:
   name: ANN
   # n_layers: 3
-  n_features: 881
+  n_features: 893
   n_classes: 2
   # hidden_size: 256
   dropout: 0.1
