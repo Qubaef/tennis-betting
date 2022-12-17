@@ -1,8 +1,9 @@
+import argparse
 import os
 
 import torch
 import torch.utils.data
-from omegaconf import OmegaConf
+from omegaconf import OmegaConf, MISSING
 
 from ml.src.trainingData import TrainingData
 from ml.src.phase import Phase
@@ -30,20 +31,13 @@ WANDB_MODE = "disabled"
 
 
 def train():
-    cfg = ConfigStore.cfg
     with wandb.init(
-        entity="pg-pug-tennis-betting",
-        project="tennis-betting",
-        mode=WANDB_MODE,
-        config=cfg,
-    ):
+            entity="pg-pug-tennis-betting",
+            project="tennis-betting",
+            mode=WANDB_MODE,
+    ) as run:
 
-        if ConfigStore.cfg is None:
-            raise Exception("Config not loaded")
-        # Override config with sweep values and save whole config in wandb run folder
-        ConfigStore.sweep_override(wandb.config)
-        ConfigStore.save_config(wandb.run.dir)
-        wandb.save("all_config.yaml", policy="now")
+        ConfigStore.handle_wandb(run)
 
         cfg: Config = ConfigStore.cfg
 
@@ -75,31 +69,26 @@ def train():
 
         # Make test run
         test_metrics = val_epoch(training, Phase.TEST)
-        print_metrics(
-            test_metrics, len(training.dataloaders[Phase.TEST]), wandb, "Test"
-        )
+        print_metrics(test_metrics, len(training.dataloaders[Phase.TEST]), wandb, "Test")
         # Save model TODO: add better model name and consider using artifact system
         torch.save(model, os.path.join(wandb.run.dir, "model.pt"))
 
 
 def main():
-    root_path = os.path.abspath(f"{os.path.dirname(os.path.abspath(__file__))}/../../")
-    config_path = f"{root_path}/ml/config/sweep-conf.yaml"
+    parser = argparse.ArgumentParser(prog='Tennis betting')
+    parser.add_argument('--config', type=str, required=True, help='Config file path, absolute or relative to ml/config')
+    args = parser.parse_args()
 
-    ConfigStore.load(config_path)
+    ConfigStore.load(args.config)
     cfg = ConfigStore.cfg
-
-    if cfg.root_path == "":
-        cfg.root_path = root_path
-
     if cfg.sweep is None:
         train()
     else:
-        sweep_cfg = OmegaConf.to_container(cfg.sweep, resolve=True)
-        sweep_id = wandb.sweep(
-            sweep_cfg, entity="pg-pug-tennis-betting", project="tennis-betting"
-        )
-        wandb.agent(sweep_id, train, count=1)
+        sweep_cfg = OmegaConf.to_container(ConfigStore.cfg.sweep, resolve=True)
+        if ConfigStore.cfg.name is not None and ConfigStore.cfg.name != "":
+            sweep_cfg["name"] = ConfigStore.cfg.name
+        sweep_id = wandb.sweep(sweep_cfg, entity="pg-pug-tennis-betting", project="tennis-betting")
+        wandb.agent(sweep_id, train)
 
 
 if __name__ == "__main__":
