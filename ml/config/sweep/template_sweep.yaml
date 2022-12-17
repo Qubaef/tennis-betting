@@ -1,0 +1,65 @@
+# Sweep template config
+
+name: template
+
+dataset:
+  data_path: "${root_path}/data/own/data.csv"
+
+training:
+  gpu: 0
+  epochs: 2
+  batch_size: 256
+  num_workers: 0
+  seed:
+
+  weight_decay: 0
+  factor: 0.1
+
+  threshold: 0.0001
+
+model:
+  name: ANN
+
+  n_features: 881
+  n_classes: 2
+
+  dropout: 0.1
+  time_steps: 10
+
+# https://docs.wandb.ai/guides/sweeps/define-sweep-configuration
+sweep:
+  # Max number of runs, if not specified, sweep will run until stopped
+  run_cap: 50
+
+  # grid, random, bayes
+  # Random and Bayesian searches will run forever or until the run_cap is reached.
+  # Grid searches will run forever if searching in continuous space
+  method: random
+
+  # required for bayes
+  metric:
+    name: win_sum
+    goal: maximize
+
+  parameters:
+      training:
+        parameters:
+          lr:
+            distribution: normal
+            mu: 0.01
+            sigma: 0.1
+
+          patience:
+            values: [ 8, 9, 10, 11, 12]
+            probabilities: [ 0.125, 0.125, 0.5, 0.125,  0.125 ]
+
+      model:
+        parameters:
+          n_layers:
+            distribution: int_uniform
+            min: 1
+            max: 5
+
+          hidden_size:
+            values: [128, 256, 512, 1024]
+

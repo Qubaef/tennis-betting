@@ -1,4 +1,6 @@
-root_path: ""
+# Single run template config
+
+name: template
 
 dataset:
   data_path: "${root_path}/data/own/data.csv"
@@ -24,17 +26,3 @@ model:
   hidden_size: 256
   dropout: 0.1
   time_steps: 10
-
-#sweep:
-#  method: random
-#  parameters:
-#      model:
-#        parameters:
-#          n_layers:
-#            distribution: int_uniform
-#            min: 1
-#            max: 5
-#          n_features:
-#            distribution: int_uniform
-#            min: 1
-#            max: 50
