@@ -37,6 +37,16 @@ sweep:
   # Max number of runs, if not specified, sweep will run until stopped
   run_cap: 50
 
+
+  # early stopping
+  # https://docs.wandb.ai/guides/sweeps/define-sweep-configuration#early_terminate
+  # https://open.gitcode.host/wandb-docs/sweeps/configuration.html#stopping-criteria
+  # early_terminate:
+  #   type: hyperband
+  #   s: 2
+  #   eta: 3
+  #   max_iter: 27
+
   # grid, random, bayes
   # Random and Bayesian searches will run forever or until the run_cap is reached.
   # Grid searches will run forever if searching in continuous space
@@ -44,7 +54,7 @@ sweep:
 
   # required for bayes
   metric:
-    name: win_sum
+    name: val_avg_bet_win
     goal: maximize
 
   parameters:
