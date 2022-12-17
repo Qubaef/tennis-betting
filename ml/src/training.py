@@ -24,17 +24,12 @@ from ml.src.trainingUtils import (
     print_metrics,
 )
 
-# "online" to send data to wandb server
-# "offline" to save data locally, and optionally sync them later with `wandb sync`
-# "disabled" to mock the wandb API and not store any data
-WANDB_MODE = "disabled"
-
 
 def train():
     with wandb.init(
             entity="pg-pug-tennis-betting",
             project="tennis-betting",
-            mode=WANDB_MODE,
+            mode=ConfigStore.cfg.wandb_mode,
     ) as run:
 
         ConfigStore.handle_wandb(run)
@@ -87,6 +82,9 @@ def main():
         sweep_cfg = OmegaConf.to_container(ConfigStore.cfg.sweep, resolve=True)
         if ConfigStore.cfg.name is not None and ConfigStore.cfg.name != "":
             sweep_cfg["name"] = ConfigStore.cfg.name
+
+        assert ConfigStore.cfg.wandb_mode == "online", "Sweep only supported in online mode"
+
         sweep_id = wandb.sweep(sweep_cfg, entity="pg-pug-tennis-betting", project="tennis-betting")
         wandb.agent(sweep_id, train)
 

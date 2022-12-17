@@ -49,6 +49,7 @@ class Config:
     dataset: Dataset = field(default_factory=Dataset)
     model: Model = field(default_factory=Model)
     training: Training = field(default_factory=Training)
+    wandb_mode: str = MISSING
     name: Optional[str] = None
     sweep: Optional[dict] = None
     root_path: str = MISSING

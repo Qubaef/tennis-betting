@@ -1,5 +1,10 @@
 # Sweep template config
 
+# "online" to send data to wandb server
+# "offline" to save data locally, and optionally sync them later with `wandb sync`
+# "disabled" to mock the wandb API and not store any data
+wandb_mode: "disabled"
+
 name: template
 
 dataset:
