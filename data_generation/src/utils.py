@@ -25,9 +25,11 @@ def duration_to_minutes(duration: str) -> int:
     return int(timeParts[0]) * 60 + int(timeParts[1])
 
 
-def date_to_timestamp(date: str) -> float:
-    return float(pd.to_datetime(date).timestamp() / pd.Timestamp.max.timestamp())
-
+def date_to_timestamp(date: str, min_date: str, max_date: str) -> float:
+    return float(
+        (pd.to_datetime(date) - pd.to_datetime(min_date)).total_seconds()
+        / (pd.to_datetime(max_date) - pd.to_datetime(min_date)).total_seconds()
+    )
 
 def base_type(val):
     if isinstance(val, np.generic):

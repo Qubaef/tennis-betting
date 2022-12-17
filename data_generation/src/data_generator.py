@@ -1,3 +1,4 @@
+import math
 import os
 import shutil
 from tqdm import tqdm
@@ -9,6 +10,9 @@ from data_generation.src import utils, paths
 
 RECENT_MATCHES_COUNT = 7
 H2H_MATCHES_COUNT = 3
+
+MIN_DATE = "1990-01-01"
+MAX_DATE = "2030-01-01"
 
 # Sample data:
 # start_date, end_date,   location, court_surface,prize_money,currency,year, player_id,     player_name, opponent_id,   opponent_name, tournament,        round,                num_sets,sets_won,games_won,games_against,tiebreaks_won,tiebreaks_total,serve_rating,aces,double_faults,first_serve_made,first_serve_attempted,first_serve_points_made,first_serve_points_attempted,second_serve_points_made,second_serve_points_attempted,break_points_saved,break_points_against,service_games_won,return_rating,first_serve_return_points_made,first_serve_return_points_attempted,second_serve_return_points_made,second_serve_return_points_attempted,break_points_made,break_points_attempted,return_games_played,service_points_won,service_points_attempted,return_points_won,return_points_attempted,total_points_won,total_points,duration,player_victory,retirement,seed,won_first_set,doubles,masters,round_num,nation # noqa: E501
@@ -34,7 +38,7 @@ def tournamentId_to_float(tournamentId: str) -> float:
 
 
 def tournamentStart_to_float(start_date: str) -> float:
-    return utils.date_to_timestamp(start_date)
+    return utils.date_to_timestamp(start_date, MIN_DATE, MAX_DATE)
 
 
 class MatchConditions:
@@ -316,6 +320,12 @@ class PlayerStats:
         self.playerMatchStory: List[MatchStats] = []
         self.playerWins: float = 0
         self.playerLosses: float = 0
+        self.winsPerSurface: float = 0
+        self.lossesPerSurface: float = 0
+        self.winsPerRound: float = 0
+        self.lossesPerRound: float = 0
+        self.winsPerImportance: float = 0
+        self.lossesPerImportance: float = 0
         self.aggregatedStats: GameStats = GameStats()
 
         self.odds: float = 0
@@ -328,6 +338,12 @@ class PlayerStats:
         columns: List[str] = [
             f"{prefix}totalWins",
             f"{prefix}totalLosses",
+            f"{prefix}winsPerSurface",
+            f"{prefix}lossesPerSurface",
+            f"{prefix}winsPerRound",
+            f"{prefix}lossesPerRound",
+            f"{prefix}winsPerImportance",
+            f"{prefix}lossesPerImportance",
             f"{prefix}h2hWins",
             f"{prefix}h2hLosses",
         ]
@@ -346,6 +362,12 @@ class PlayerStats:
         row: List[float] = [
             self.playerWins,
             self.playerLosses,
+            self.winsPerSurface,
+            self.lossesPerSurface,
+            self.winsPerRound,
+            self.lossesPerRound,
+            self.winsPerImportance,
+            self.lossesPerImportance,
             self.h2hWins,
             self.h2hLosses,
         ]
@@ -423,7 +445,7 @@ class MatchData:
 
 
 def get_player_stats(
-    player_match_history: pd.DataFrame, versus_player_id: str
+    player_match_history: pd.DataFrame, versus_player_id: str, surface: str, round: int, importance: int
 ) -> PlayerStats:
     player_stats: PlayerStats = PlayerStats()
 
@@ -438,10 +460,50 @@ def get_player_stats(
         len(player_match_history) - player_stats.playerWins
     )
 
-    # Get RECENT_MATCHES_COUNT last matches from history
+    # Count wins and losses per surface
+    player_stats.winsPerSurface = float(
+        player_match_history[
+            (player_match_history["player_victory"] == "t") &
+            (player_match_history["court_surface"] == surface)
+        ].shape[0])
+    player_stats.lossesPerSurface = float(
+        player_match_history[
+            (player_match_history["player_victory"] != "t") &
+            (player_match_history["court_surface"] == surface)
+        ].shape[0])
+
+    # Count wins and losses per round
+    player_stats.winsPerRound = float(
+        player_match_history[
+            (player_match_history["player_victory"] == "t") &
+            (player_match_history["round_num"] == round)
+        ].shape[0])
+    player_stats.lossesPerRound = float(
+        player_match_history[
+            (player_match_history["player_victory"] != "t") &
+            (player_match_history["round_num"] == round)
+        ].shape[0])
+
+    # Count wins and losses per importance
+    player_stats.winsPerImportance = float(
+        player_match_history[
+            (player_match_history["player_victory"] == "t") &
+            (player_match_history["masters"] == importance)
+        ].shape[0])
+    player_stats.lossesPerImportance = float(
+        player_match_history[
+            (player_match_history["player_victory"] != "t") &
+            (player_match_history["masters"] == importance)
+        ].shape[0])
+
+    # Copy RECENT_MATCHES_COUNT last matches from history
     player_matches_before: pd.DataFrame = player_match_history.tail(
         RECENT_MATCHES_COUNT
-    )
+    ).copy().iloc[::-1]
+
+    # player_matches_before: pd.DataFrame = player_match_history.tail(
+    #     RECENT_MATCHES_COUNT
+    # )
 
     for _, row in player_matches_before.iterrows():
         player_stats.playerMatchStory.append(MatchStats())
@@ -454,7 +516,6 @@ def get_player_stats(
     h2h_matches: pd.DataFrame = player_match_history[
         (player_match_history["opponent_id"] == versus_player_id)
     ]
-    h2h_matches = h2h_matches.sort_values(by=["start_date"])
 
     # Get number of wins in h2h matches
     player_stats.h2hWins = float(
@@ -462,8 +523,11 @@ def get_player_stats(
     )
     player_stats.h2hLosses = float(len(h2h_matches) - player_stats.h2hWins)
 
+    # Get H2H_MATCHES_COUNT last matches from history
+    h2h_matches = h2h_matches.tail(H2H_MATCHES_COUNT).copy().iloc[::-1]
+
     # Get H2H_MATCHES_COUNT last matches between the two players
-    for _, row in h2h_matches.tail(H2H_MATCHES_COUNT).iterrows():
+    for _, row in h2h_matches.iterrows():
         player_stats.h2hStory.append(MatchStats())
         player_stats.h2hStory[-1].from_row(row)
 
@@ -478,6 +542,12 @@ def generate_own_data() -> pd.DataFrame:
     matches = matches.sort_values(by=["start_date", "round_num"], ascending=[True, True])
     bets = bets.sort_values(by=["start_date"])
     # matches.to_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, index=False)
+
+    # Verify if dates from matches table fit in the range (MIN_DATE, MAX_DATE)
+    min_date: str = matches["start_date"].min()
+    max_date: str = matches["start_date"].max()
+    if min_date < MIN_DATE or max_date > MAX_DATE:
+        assert False, "Dates from matches table are not in the range (MIN_DATE, MAX_DATE)"
 
     # Create a list of tables, each containing matches of a single player (by player_id)
     players = matches["player_id"].unique()
@@ -544,8 +614,10 @@ def generate_own_data() -> pd.DataFrame:
         player2_matches_before = player2_matches_before.drop(player2_match_id[0])
 
         # Generate player stats from match history
-        player1_stats = get_player_stats(player1_matches_before, match_bets["team2"])
-        player2_stats = get_player_stats(player2_matches_before, match_bets["team1"])
+        player1_stats = get_player_stats(player1_matches_before,
+            match_bets["team2"], player1_match["court_surface"], player1_match["round_num"], player1_match["masters"])
+        player2_stats = get_player_stats(player2_matches_before,
+            match_bets["team1"], player2_match["court_surface"], player2_match["round_num"], player2_match["masters"])
 
         # Fill the match data
         # Team 1 perspective
@@ -728,7 +800,79 @@ def generate_own_dataset():
     # Generate own dataset
     generate_own_data()
 
+def test_generated_data():
+    if not os.path.exists(paths.ORG_CLEAN_STATS_DATASET_PATH):
+        assert False, f"Clean dataset stats file not found at {os.path.normpath(paths.ORG_CLEAN_STATS_DATASET_PATH)}"
+
+    if not os.path.exists(paths.ORG_CLEAN_BETS_DATASET_PATH):
+        assert False, f"Clean dataset bets file not found at {os.path.normpath(paths.ORG_CLEAN_BETS_DATASET_PATH)}"
+
+    if not os.path.exists(paths.OWN_FULL_DATASET_PATH):
+        assert False, f"Own full dataset file not found at {os.path.normpath(paths.OWN_FULL_DATASET_PATH)}"
+
+    matches = pd.read_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, sep=",")
+    bets = pd.read_csv(paths.ORG_CLEAN_BETS_DATASET_PATH, sep=",")
+    generated_data = pd.read_csv(paths.OWN_FULL_DATASET_PATH, sep=",")
+
+    # For each record in generated_data, check if it's start_date is larger than previous matches and h2h matches
+    for index, row in generated_data.iterrows():
+        start_date = row["tournamentStart"]
+        player1 = row["player1"]
+        player2 = row["player2"]
+
+        prev_match: float = math.inf
+        for i in range(RECENT_MATCHES_COUNT):
+            curr_match: float = row[f"p1_prev_{i}_tournamentStart"]
+            if curr_match > prev_match:
+                assert False, f"Previous matches are not sorted for record {index}"
+            if curr_match > start_date:
+                assert False, f"Start date of generated data is smaller than previous matches for record {index}"
+            prev_match = curr_match
+
+        prev_match: float = math.inf
+        for i in range(RECENT_MATCHES_COUNT):
+            curr_match: float = row[f"p2_prev_{i}_tournamentStart"]
+            if curr_match > prev_match:
+                assert False, f"Previous matches are not sorted for record {index}"
+            if curr_match > start_date:
+                assert False, f"Start date of generated data is smaller than previous matches for record {index}"
+            prev_match = curr_match
+
+        prev_match: float = math.inf
+        for i in range(H2H_MATCHES_COUNT):
+            curr_match: float = row[f"p1_h2h_{i}_tournamentStart"]
+            if curr_match > prev_match:
+                assert False, f"H2h matches are not sorted for record {index}"
+            if curr_match > start_date:
+                assert False, f"Start date of generated data is smaller than previous matches for record {index}"
+            prev_match = curr_match
+
+        prev_match: float = math.inf
+        for i in range(H2H_MATCHES_COUNT):
+            curr_match: float = row[f"p2_h2h_{i}_tournamentStart"]
+            if curr_match > prev_match:
+                assert False, f"H2h matches are not sorted for record {index}"
+            if curr_match > start_date:
+                assert False, f"Start date of generated data is smaller than previous matches for record {index}"
+            prev_match = curr_match
+
+
+    # Create a list of tables, each containing matches of a single player (by player_id)
+    players = matches["player_id"].unique()
+    players_matches: Dict[str, pd.DataFrame] = {}
+
+    print("Splitting matches by player...")
+
+    for player in tqdm(players):
+        player_matches = matches[matches["player_id"] == player]
+        players_matches[player] = player_matches
+
+
+
+
+
 
 if __name__ == "__main__":
     # generate_clean_org_dataset()
     generate_own_dataset()
+    # test_generated_data()
