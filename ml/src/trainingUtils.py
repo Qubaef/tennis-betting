@@ -60,11 +60,17 @@ def create_optimizer(cfg: Config, model: nn.Module) -> torch.optim.Optimizer:
     )
 
 
-def create_dataloaders(cfg: Config) -> Dict[Phase, torch.utils.data.DataLoader]:
+def create_dataloaders(cfg: Config, force_new_instance: bool = False) -> Dict[Phase, torch.utils.data.DataLoader]:
+
+    if not hasattr(create_dataloaders, "datasets"):
+        create_dataloaders.datasets = {}
+
     dataloaders = {}
     for phase in Phase:
-        dataset = TennisDataset(cfg, phase)
-        dataloaders[phase] = dataset.create_data_loader(phase)
+        if force_new_instance or phase not in create_dataloaders.datasets:
+            create_dataloaders.datasets[phase] = TennisDataset(cfg, phase)
+        dataloaders[phase] = create_dataloaders.datasets[phase].create_data_loader(cfg, phase)
+
     return dataloaders
 
 
