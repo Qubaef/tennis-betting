@@ -39,10 +39,10 @@ class TennisDataset(Dataset):
     def __getitem__(self, idx):
         return self.data[idx], self.label.data[idx]
 
-    def create_data_loader(self, phase: Phase) -> torch.utils.data.DataLoader:
+    def create_data_loader(self, cfg: Config, phase: Phase) -> torch.utils.data.DataLoader:
         return torch.utils.data.DataLoader(
             self,
-            batch_size=self.cfg.training.batch_size,
-            num_workers=self.cfg.training.num_workers,
+            batch_size=cfg.training.batch_size,
+            num_workers=cfg.training.num_workers,
             shuffle=phase == Phase.TRAIN,
         )
