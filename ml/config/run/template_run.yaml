@@ -24,10 +24,9 @@ training:
   loss: "cross_entropy"
 
 model:
-  name: ANN
+  name: LSTM
   n_layers: 3
   n_features: 893
   n_classes: 2
-  hidden_size: 256
+  hidden_size: 16
   dropout: 0.1
-  time_steps: 10

@@ -1,4 +1,4 @@
-from typing import Dict, Any, Union, Tuple
+from typing import Dict, Any, Union, Tuple, no_type_check
 
 import torch
 import torch.utils.data
@@ -60,7 +60,10 @@ def create_optimizer(cfg: Config, model: nn.Module) -> torch.optim.Optimizer:
     )
 
 
-def create_dataloaders(cfg: Config, force_new_instance: bool = False) -> Dict[Phase, torch.utils.data.DataLoader]:
+@no_type_check
+def create_dataloaders(
+    cfg: Config, force_new_instance: bool = False
+) -> Dict[Phase, torch.utils.data.DataLoader]:
 
     if not hasattr(create_dataloaders, "datasets"):
         create_dataloaders.datasets = {}
@@ -69,7 +72,9 @@ def create_dataloaders(cfg: Config, force_new_instance: bool = False) -> Dict[Ph
     for phase in Phase:
         if force_new_instance or phase not in create_dataloaders.datasets:
             create_dataloaders.datasets[phase] = TennisDataset(cfg, phase)
-        dataloaders[phase] = create_dataloaders.datasets[phase].create_data_loader(cfg, phase)
+        dataloaders[phase] = create_dataloaders.datasets[phase].create_data_loader(
+            cfg, phase
+        )
 
     return dataloaders
 
@@ -89,9 +94,8 @@ def create_model(cfg: Config) -> torch.nn.Module:
             cfg.model.hidden_size,
             cfg.model.n_classes,
             cfg.model.n_layers,
-            cfg.training.batch_size,
-            cfg.model.time_steps,
             cfg.model.dropout,
+            f"cuda:{cfg.training.gpu}" if torch.cuda.is_available() else "cpu",
         )
     else:
         raise Exception("Unknown model")
@@ -152,13 +156,14 @@ def train_epoch(training: TrainingData) -> Dict[str, float]:
         "loss_sum": 0.0,
         "bet_reward": 0.0,
     }
-
+    if training.cfg.model.name == "LSTM":
+        training.model.hidden = training.model.init_hidden()
     for i, data in enumerate(training.dataloaders[Phase.TRAIN]):
         inputs, targets = data
         training.optimizer.zero_grad()
-
+        # handle last batch, which is smaller than batch size and can't be used in LSTM
         outputs = training.model(inputs)
-
+        # flatten the targets and outputs in second dimension
         if training.cfg.training.loss == "reward":
             loss = training.loss(outputs, targets, inputs)
         else:
@@ -167,6 +172,9 @@ def train_epoch(training: TrainingData) -> Dict[str, float]:
         training.optimizer.step()
 
         calc_metrics(inputs, outputs, targets, metrics, training)
+        # detach hidden states from graph
+        if training.cfg.model.name == "LSTM":
+            training.model.detach_hidden()
         wandb.log({"train_batch_loss": loss.item()})
 
     return metrics
@@ -191,6 +199,8 @@ def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> Dict[str, flo
         "loss_sum": 0.0,
         "bet_reward": 0.0,
     }
+    if training.cfg.model.name == "LSTM":
+        training.model.hidden = training.model.init_hidden()
     for i, data in enumerate(training.dataloaders[phase]):
         inputs, targets = data
         outputs = training.model(inputs)
@@ -202,5 +212,6 @@ def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> Dict[str, flo
         calc_metrics(inputs, outputs, targets, metrics, training)
         wandb.log({"val_batch_loss": loss.item()})
         # add to win sum if pick is correct
-
+        if training.cfg.model.name == "LSTM":
+            training.model.detach_hidden()
     return metrics

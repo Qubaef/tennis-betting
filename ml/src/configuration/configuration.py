@@ -9,7 +9,8 @@ from omegaconf import (
     DictConfig,
     SI,
     OmegaConf,
-    MISSING, DictKeyType,
+    MISSING,
+    DictKeyType,
 )
 
 
@@ -26,7 +27,6 @@ class Model:
     n_classes: int = MISSING
     hidden_size: int = MISSING
     dropout: float = MISSING
-    time_steps: int = MISSING
 
 
 @dataclass
@@ -59,7 +59,9 @@ class ConfigStore(type):
     cfg: Config = OmegaConf.structured(Config)
 
     # default project root path
-    default_root_path: str = os.path.abspath(f"{os.path.dirname(os.path.abspath(__file__))}/../../../")
+    default_root_path: str = os.path.abspath(
+        f"{os.path.dirname(os.path.abspath(__file__))}/../../../"
+    )
     # default project config directory
     default_config_path: str = f"{default_root_path}/ml/config/"
 
@@ -82,7 +84,11 @@ class ConfigStore(type):
             ConfigStore.cfg.root_path = ConfigStore.default_root_path
 
         uid = uuid.uuid4().hex[:5]
-        if OmegaConf.is_missing(ConfigStore.cfg, "name") or ConfigStore.cfg.name is None or ConfigStore.cfg.name == "":
+        if (
+            OmegaConf.is_missing(ConfigStore.cfg, "name")
+            or ConfigStore.cfg.name is None
+            or ConfigStore.cfg.name == ""
+        ):
             name = f"{uid}"
         else:
             name = f"{ConfigStore.cfg.name}_{uid}"
@@ -114,7 +120,9 @@ class ConfigStore(type):
             run.name = ConfigStore.cfg.name
 
         ConfigStore.validate()
-        run.config.setdefaults(OmegaConf.to_container(ConfigStore.cfg, resolve=True, throw_on_missing=True))
+        run.config.setdefaults(
+            OmegaConf.to_container(ConfigStore.cfg, resolve=True, throw_on_missing=True)
+        )
 
         ConfigStore.save_config(run.dir)
 

@@ -3,16 +3,16 @@
 # "online" to send data to wandb server
 # "offline" to save data locally, and optionally sync them later with `wandb sync`
 # "disabled" to mock the wandb API and not store any data
-wandb_mode: "offline"
+wandb_mode: "online"
 
-name: template
+name: LSTM_test
 
 dataset:
   data_path: "${root_path}/data/own/data.csv"
 
 training:
   gpu: 0
-  epochs: 100
+  epochs: 50
   batch_size: 256
   num_workers: 0
   seed:
@@ -24,18 +24,17 @@ training:
   loss: "cross_entropy"
 
 model:
-  name: ANN
+  name: LSTM
   # n_layers: 3
   n_features: 893
   n_classes: 2
   # hidden_size: 256
-  dropout: 0.1
-  time_steps: 10
+  # dropout: 0.1
 
 # https://docs.wandb.ai/guides/sweeps/define-sweep-configuration
 sweep:
   # Max number of runs, if not specified, sweep will run until stopped
-  run_cap: 50
+  run_cap: 10
 
 
   # early stopping
@@ -54,7 +53,7 @@ sweep:
 
   # required for bayes
   metric:
-    name: val_avg_bet_win
+    name: val_acc
     goal: maximize
 
   parameters:
@@ -62,8 +61,8 @@ sweep:
         parameters:
           lr:
             distribution: uniform
-            min: 0.0001
-            max: 0.1
+            min: 0.00001
+            max: 0.001
 
           patience:
             values: [ 8, 9, 10, 11, 12]
@@ -72,9 +71,13 @@ sweep:
         parameters:
           n_layers:
             distribution: int_uniform
-            min: 1
-            max: 5
+            min: 3
+            max: 8
 
           hidden_size:
             values: [128, 256, 512, 1024]
 
+          dropout:
+            distribution: uniform
+            min: 0.1
+            max: 0.5
