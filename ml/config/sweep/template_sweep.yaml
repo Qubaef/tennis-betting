@@ -21,12 +21,12 @@ training:
   factor: 0.1
   # patience: 10
   threshold: 0.0001
-  loss: "cross_entropy"
+  loss: "reward"
 
 model:
   name: LSTM
   # n_layers: 3
-  n_features: 893
+  n_features: 897
   n_classes: 2
   # hidden_size: 256
   # dropout: 0.1
@@ -34,17 +34,16 @@ model:
 # https://docs.wandb.ai/guides/sweeps/define-sweep-configuration
 sweep:
   # Max number of runs, if not specified, sweep will run until stopped
-  run_cap: 10
-
+  run_cap: 100
 
   # early stopping
   # https://docs.wandb.ai/guides/sweeps/define-sweep-configuration#early_terminate
   # https://open.gitcode.host/wandb-docs/sweeps/configuration.html#stopping-criteria
-  # early_terminate:
-  #   type: hyperband
-  #   s: 2
-  #   eta: 3
-  #   max_iter: 27
+  early_terminate:
+    type: hyperband
+    s: 2
+    eta: 3
+    max_iter: 27
 
   # grid, random, bayes
   # Random and Bayesian searches will run forever or until the run_cap is reached.
@@ -53,7 +52,9 @@ sweep:
 
   # required for bayes
   metric:
-    name: val_acc
+    # name: Test_acc
+    # goal: maximize
+    name: val_bet_reward
     goal: maximize
 
   parameters:
@@ -61,23 +62,20 @@ sweep:
         parameters:
           lr:
             distribution: uniform
-            min: 0.00001
-            max: 0.001
+            min: 0.0001
+            max: 0.5
 
           patience:
-            values: [ 8, 9, 10, 11, 12]
+            distribution: int_uniform
+            min: 8
+            max: 20
 
       model:
         parameters:
           n_layers:
             distribution: int_uniform
             min: 3
-            max: 8
+            max: 20
 
           hidden_size:
-            values: [128, 256, 512, 1024]
-
-          dropout:
-            distribution: uniform
-            min: 0.1
-            max: 0.5
+            values: [128, 256, 512, 1024, 2048]
