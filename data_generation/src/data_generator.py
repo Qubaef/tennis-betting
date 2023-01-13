@@ -328,7 +328,6 @@ class PlayerStats:
         self.lossesPerImportance: float = 0
         self.aggregatedStats: GameStats = GameStats()
 
-        self.odds: float = 0
         self.h2hWins: float = 0
         self.h2hLosses: float = 0
         self.h2hStory: List[MatchStats] = []
@@ -399,6 +398,10 @@ class MatchData:
         self.odds1: float = 0
         self.odds2: float = 0
         self.winner: float = 0
+        self.rank1: float = 0
+        self.rank2: float = 0
+        self.rankPts1: float = 0
+        self.rankPts2: float = 0
         self.setsPlayed: float = 0
         self.gamesPlayed: float = 0
 
@@ -414,6 +417,10 @@ class MatchData:
             "odds1",
             "odds2",
             "winner",
+            "rank1",
+            "rank2",
+            "rankPts1",
+            "rankPts2",
             "setsPlayed",
             "gamesPlayed",
         ]
@@ -433,6 +440,10 @@ class MatchData:
                 self.odds1,
                 self.odds2,
                 self.winner,
+                self.rank1,
+                self.rank2,
+                self.rankPts1,
+                self.rankPts2,
                 self.setsPlayed,
                 self.gamesPlayed,
             ]
@@ -536,11 +547,11 @@ def get_player_stats(
 
 def generate_own_data() -> pd.DataFrame:
     matches = pd.read_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, sep=",")
-    bets = pd.read_csv(paths.ORG_CLEAN_BETS_DATASET_PATH, sep=",")
+    odds = pd.read_csv(paths.ODDS_CSV_PATH, sep=",")
 
     # Sort by date
     matches = matches.sort_values(by=["start_date", "round_num"], ascending=[True, True])
-    bets = bets.sort_values(by=["start_date"])
+    odds = odds.sort_values(by=["Date"])
     # matches.to_csv(paths.ORG_CLEAN_STATS_DATASET_PATH, index=False)
 
     # Verify if dates from matches table fit in the range (MIN_DATE, MAX_DATE)
@@ -549,15 +560,34 @@ def generate_own_data() -> pd.DataFrame:
     if min_date < MIN_DATE or max_date > MAX_DATE:
         assert False, "Dates from matches table are not in the range (MIN_DATE, MAX_DATE)"
 
+    # Verify if dates from bets table fit in the range (MIN_DATE, MAX_DATE)
+    min_date: str = odds["Date"].min()
+    max_date: str = odds["Date"].max()
+    if min_date < MIN_DATE or max_date > MAX_DATE:
+        assert False, "Dates from odds table are not in the range (MIN_DATE, MAX_DATE)"
+
     # Create a list of tables, each containing matches of a single player (by player_id)
     players = matches["player_id"].unique()
     players_matches: Dict[str, pd.DataFrame] = {}
 
     print("Splitting matches by player...")
-
     for player in tqdm(players):
         player_matches = matches[matches["player_id"] == player]
         players_matches[player] = player_matches
+
+    # Construct a dictionary of inverted player names to later use it with odds
+    inverted_player_names: Dict[str, List[str]] = {}
+    for player in players:
+        split_name = player.split("-")
+        split_name[0] = split_name[0].capitalize()
+        split_name[1] = split_name[1].capitalize()
+
+        inverted_player_name: str = split_name[1] + " " + split_name[0][0] + "."
+        if inverted_player_name not in inverted_player_names:
+            inverted_player_names[inverted_player_name] = [player]
+
+        if inverted_player_name not in inverted_player_names:
+            inverted_player_names[inverted_player_name].append(player)
 
     # For each match from bets, collect features and pack them up into a MatchData object
     parsed_matches: List[MatchData] = []
@@ -566,41 +596,57 @@ def generate_own_data() -> pd.DataFrame:
 
     MAX_ITERS = 100
 
-    for index, match_bets in tqdm(bets.iterrows(), total=bets.shape[0]):
+    for index, match_odds in tqdm(odds.iterrows(), total=odds.shape[0]):
         # if MAX_ITERS > 0:
         #     MAX_ITERS -= 1
         # else:
         #     break
 
+        if match_odds["Winner"] not in inverted_player_names:
+            continue
+        if match_odds["Loser"] not in inverted_player_names:
+            continue
+
+        if len(inverted_player_names[match_odds["Winner"]]) > 1:
+            continue
+        if len(inverted_player_names[match_odds["Loser"]]) > 1:
+            continue
+
+        date: str = match_odds["Date"]
+        team1_name: str = inverted_player_names[match_odds["Winner"]][0]
+        team2_name: str = inverted_player_names[match_odds["Loser"]][0]
+
         # Find the stats of the match
         # Find the match in the player stats
         if (
-            match_bets["team1"] not in players_matches
-            or match_bets["team2"] not in players_matches
+            team1_name not in players_matches or
+                team2_name not in players_matches
         ):
             continue
 
-        player1_matches: pd.DataFrame = players_matches[match_bets["team1"]]
-        player2_matches: pd.DataFrame = players_matches[match_bets["team2"]]
+        player1_matches: pd.DataFrame = players_matches[team1_name]
+        player2_matches: pd.DataFrame = players_matches[team2_name]
 
-        # Find the match in the player stats
+        # Find the match in the player stats (date has to be in the range of the tournament)
         player1_match_id = player1_matches.index[
-            (player1_matches["start_date"] == match_bets["start_date"])
-            & (player1_matches["player_id"] == match_bets["team1"])
-            & (player1_matches["opponent_id"] == match_bets["team2"])
+            (player1_matches["start_date"] <= date)
+            & (player1_matches["end_date"] >= date)
+            & (player1_matches["player_id"] == team1_name)
+            & (player1_matches["opponent_id"] == team2_name)
         ]
 
-        # If the match is not found, skip
-        if len(player1_match_id) == 0:
+        # If the match is not found (or multiple were found), skip
+        if len(player1_match_id) != 1:
             continue
 
         player2_match_id = player2_matches.index[
-            (player2_matches["start_date"] == match_bets["start_date"])
-            & (player2_matches["player_id"] == match_bets["team2"])
-            & (player2_matches["opponent_id"] == match_bets["team1"])
+            (player2_matches["start_date"] <= date)
+            & (player2_matches["end_date"] >= date)
+            & (player2_matches["player_id"] == team2_name)
+            & (player2_matches["opponent_id"] == team1_name)
         ]
 
-        if len(player2_match_id) == 0:
+        if len(player1_match_id) != 1:
             continue
 
         player1_match = player1_matches.loc[player1_match_id[0]]
@@ -615,21 +661,25 @@ def generate_own_data() -> pd.DataFrame:
 
         # Generate player stats from match history
         player1_stats = get_player_stats(player1_matches_before,
-            match_bets["team2"], player1_match["court_surface"], player1_match["round_num"], player1_match["masters"])
+            team2_name, player1_match["court_surface"], player1_match["round_num"], player1_match["masters"])
         player2_stats = get_player_stats(player2_matches_before,
-            match_bets["team1"], player2_match["court_surface"], player2_match["round_num"], player2_match["masters"])
+            team1_name, player2_match["court_surface"], player2_match["round_num"], player2_match["masters"])
 
         # Fill the match data
         # Team 1 perspective
         parsed_matches.append(MatchData())
         parsed_match: MatchData = parsed_matches[-1]
 
-        parsed_match.startDate = match_bets["start_date"]
-        parsed_match.player1 = match_bets["team1"]
-        parsed_match.player2 = match_bets["team2"]
-        parsed_match.odds1 = 1 / match_bets["odds1"]
-        parsed_match.odds2 = 1 / match_bets["odds2"]
+        parsed_match.startDate = player1_match["start_date"]
+        parsed_match.player1 = team1_name
+        parsed_match.player2 = team2_name
+        parsed_match.odds1 = match_odds["AvgW"]
+        parsed_match.odds2 = match_odds["AvgL"]
         parsed_match.winner = 0 if (player1_match["player_victory"] == "t") else 1
+        parsed_match.rank1 = match_odds["WRank"]
+        parsed_match.rank2 = match_odds["LRank"]
+        parsed_match.rankPts1 = match_odds["WPts"]
+        parsed_match.rankPts2 = match_odds["LPts"]
         parsed_match.setsPlayed = float(player1_match["num_sets"])
         parsed_match.gamesPlayed = float(player1_match["games_won"] + player1_match["games_against"])
 
@@ -641,20 +691,22 @@ def generate_own_data() -> pd.DataFrame:
         parsed_matches.append(MatchData())
         parsed_match = parsed_matches[-1]
 
-        parsed_match.startDate = match_bets["start_date"]
-        parsed_match.player1 = match_bets["team2"]
-        parsed_match.player2 = match_bets["team1"]
-        parsed_match.odds1 = 1 / match_bets["odds2"]
-        parsed_match.odds2 = 1 / match_bets["odds1"]
+        parsed_match.startDate = player2_match["start_date"]
+        parsed_match.player1 = team2_name
+        parsed_match.player2 = team1_name
+        parsed_match.odds1 = match_odds["AvgL"]
+        parsed_match.odds2 = match_odds["AvgW"]
         parsed_match.winner = 0 if (player2_match["player_victory"] == "t") else 1
+        parsed_match.rank1 = match_odds["LRank"]
+        parsed_match.rank2 = match_odds["WRank"]
+        parsed_match.rankPts1 = match_odds["LPts"]
+        parsed_match.rankPts2 = match_odds["WPts"]
         parsed_match.setsPlayed = float(player2_match["num_sets"])
         parsed_match.gamesPlayed = float(player2_match["games_won"] + player2_match["games_against"])
 
         parsed_match.matchConditions.from_row(player2_match)
         parsed_match.player1Stats = player2_stats
         parsed_match.player2Stats = player1_stats
-        parsed_match.player1Stats.odds = match_bets["odds2"]
-        parsed_match.player2Stats.odds = match_bets["odds1"]
 
     # Print tournamentIds and courtSurfaces ids
     print("Tournaments:")
@@ -779,6 +831,16 @@ def generate_own_dataset():
             f"Org clean zip file found at {os.path.normpath(paths.ORG_CLEAN_DATASET_ZIP_PATH)}"
         )
 
+    # Check if odds zip file exists
+    if not os.path.exists(paths.ODDS_ZIP_PATH):
+        assert (
+            False
+        ), f"Odds zip file not found. Please run the script 'stats_scrapper.py' first."
+    else:
+        print(
+            f"Odds csv file found at {os.path.normpath(paths.ODDS_ZIP_PATH)}"
+        )
+
     # Check if the datasets already exist and notify the user
     # Don't delete them every time to save SSD read/write cycles
     if os.path.exists(paths.OWN_DATASET_DIR):
@@ -793,6 +855,9 @@ def generate_own_dataset():
 
     # Unzip org clean dataset
     utils.unzip(paths.ORG_CLEAN_DATASET_ZIP_PATH, paths.ORG_CLEAN_DATASET_DIR)
+
+    # Unzip odds dataset
+    utils.unzip(paths.ODDS_ZIP_PATH, paths.ODDS_DIR)
 
     # Create own dataset folder
     os.mkdir(paths.OWN_DATASET_DIR)
@@ -866,11 +931,6 @@ def test_generated_data():
     for player in tqdm(players):
         player_matches = matches[matches["player_id"] == player]
         players_matches[player] = player_matches
-
-
-
-
-
 
 if __name__ == "__main__":
     # generate_clean_org_dataset()

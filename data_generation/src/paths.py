@@ -22,3 +22,7 @@ OWN_FULL_DATASET_PATH: str = f"{rootpath}/data/own/data.csv"
 OWN_TRAIN_DATASET_PATH: str = f"{OWN_DATASET_DIR}/train"
 OWN_TEST_DATASET_PATH: str = f"{OWN_DATASET_DIR}/test"
 OWN_VAL_DATASET_PATH: str = f"{OWN_DATASET_DIR}/val"
+
+ODDS_DIR: str = f"{rootpath}/data/odds"
+ODDS_ZIP_PATH: str = f"{rootpath}/tennisOdds.zip"
+ODDS_CSV_PATH: str = f"{ODDS_DIR}/odds.csv"

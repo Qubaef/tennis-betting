@@ -16,18 +16,15 @@ class TennisDataset(Dataset):
         )
         # Train dataset until 2017
         if phase == Phase.TRAIN:
-            self.data = self.data[self.data["startDate"] < "2017-01-01"]
-        # Validation dataset from 2017 to 2018
+            self.data = self.data[self.data["startDate"] < "2016-01-01"]
         elif phase == Phase.VAL:
             self.data = self.data[
-                (self.data["startDate"] >= "2017-01-01")
-                & (self.data["startDate"] < "2018-01-01")
+                (self.data["startDate"] >= "2016-01-01")
+                & (self.data["startDate"] < "2017-01-01")
             ]
         # Test dataset from 2018 to
         elif phase == Phase.TEST:
-            self.data = self.data[self.data["startDate"] >= "2018-01-01"]
-
-        # Get labels
+            self.data = self.data[self.data["startDate"] >= "2017-01-01"]
         self.label = self.data["winner"].to_numpy().astype(np.int64)
 
         # Drop columns that are not needed

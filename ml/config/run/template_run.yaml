@@ -26,7 +26,7 @@ training:
 model:
   name: LSTM
   n_layers: 3
-  n_features: 893
+  n_features: 897
   n_classes: 2
   hidden_size: 16
   dropout: 0.1
