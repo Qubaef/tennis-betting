@@ -99,6 +99,25 @@ def download_odds(years: List[str]):
     # Remove the unzipped file
     os.remove("odds.csv")
 
+def validate_odds():
+    odds = pd.read_csv(paths.ODDS_CSV_PATH, sep=",")
+
+    odds = odds[odds["AvgW"] * 1.2 > odds["MaxW"]]
+    odds = odds[odds["AvgL"] * 1.2 > odds["MaxL"]]
+
+    # Calculate average maxW/avgW and maxL/avgL for whole column
+    odds["MaxW/AvgW"] = odds["MaxW"] / odds["AvgW"]
+    odds["MaxL/AvgL"] = odds["MaxL"] / odds["AvgL"]
+
+    print("MaxW/AvgW: ", odds["MaxW/AvgW"].mean())
+    print("MaxL/AvgL: ", odds["MaxL/AvgL"].mean())
+
+    # Calculate average max/avg in total
+    odds["Max/Avg"] = (odds["MaxW"] + odds["MaxL"]) / (odds["AvgW"] + odds["AvgL"])
+    print("Max/Avg: ", odds["Max/Avg"].mean())
+
 if __name__ == "__main__":
     years: List[str] = [str(year) for year in range(2005, 2019)]
     download_odds(years)
+
+    # validate_odds()
