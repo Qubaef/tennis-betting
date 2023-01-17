@@ -395,8 +395,10 @@ class MatchData:
         self.startDate: str = ""
         self.player1: str = ""
         self.player2: str = ""
-        self.odds1: float = 0
-        self.odds2: float = 0
+        self.oddsAvg1: float = 0
+        self.oddsAvg2: float = 0
+        self.oddsMax1: float = 0
+        self.oddsMax2: float = 0
         self.winner: float = 0
         self.rank1: float = 0
         self.rank2: float = 0
@@ -414,8 +416,10 @@ class MatchData:
             "startDate",
             "player1",
             "player2",
-            "odds1",
-            "odds2",
+            "oddsAvg1",
+            "oddsAvg2",
+            "oddsMax1",
+            "oddsMax2",
             "winner",
             "rank1",
             "rank2",
@@ -437,8 +441,10 @@ class MatchData:
                 self.startDate,
                 self.player1,
                 self.player2,
-                self.odds1,
-                self.odds2,
+                self.oddsAvg1,
+                self.oddsAvg2,
+                self.oddsMax1,
+                self.oddsMax2,
                 self.winner,
                 self.rank1,
                 self.rank2,
@@ -673,8 +679,10 @@ def generate_own_data() -> pd.DataFrame:
         parsed_match.startDate = player1_match["start_date"]
         parsed_match.player1 = team1_name
         parsed_match.player2 = team2_name
-        parsed_match.odds1 = match_odds["AvgW"]
-        parsed_match.odds2 = match_odds["AvgL"]
+        parsed_match.oddsAvg1 = match_odds["AvgW"]
+        parsed_match.oddsAvg2 = match_odds["AvgL"]
+        parsed_match.oddsMax1 = match_odds["MaxW"]
+        parsed_match.oddsMax2 = match_odds["MaxL"]
         parsed_match.winner = 0 if (player1_match["player_victory"] == "t") else 1
         parsed_match.rank1 = match_odds["WRank"]
         parsed_match.rank2 = match_odds["LRank"]
@@ -694,8 +702,10 @@ def generate_own_data() -> pd.DataFrame:
         parsed_match.startDate = player2_match["start_date"]
         parsed_match.player1 = team2_name
         parsed_match.player2 = team1_name
-        parsed_match.odds1 = match_odds["AvgL"]
-        parsed_match.odds2 = match_odds["AvgW"]
+        parsed_match.oddsAvg1 = match_odds["AvgL"]
+        parsed_match.oddsAvg2 = match_odds["AvgW"]
+        parsed_match.oddsMax1 = match_odds["MaxL"]
+        parsed_match.oddsMax2 = match_odds["MaxW"]
         parsed_match.winner = 0 if (player2_match["player_victory"] == "t") else 1
         parsed_match.rank1 = match_odds["LRank"]
         parsed_match.rank2 = match_odds["WRank"]
