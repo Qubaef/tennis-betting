@@ -26,7 +26,8 @@ class reward_loss(torch.nn.Module):
         # loss = output[target] * odd_target
         odds = inputs[:, targets].diagonal()
         win = outputs[:, targets].diagonal()
-        return -torch.mul(win, odds).mean()
+        bet_amount = torch.abs(outputs[:, 0] - outputs[:, 1])
+        return -torch.mul(torch.mul(win, odds), bet_amount).mean() + bet_amount.mean()
 
 
 def create_loss(cfg: Config) -> torch.nn.Module:
@@ -115,8 +116,13 @@ def calc_metrics(inputs, outputs, targets, metrics, training):
     pick = torch.argmax(outputs, dim=1)
     correct_pick = (pick == targets).int()
     odds = inputs[:, pick].diagonal()
-    win = torch.sub(torch.mul(odds, correct_pick).sum(), correct_pick.shape[0])
+    # if network is more certain, we want to bet more, high_pred - low_pred / 2
+    bet_amount = torch.abs(outputs[:, 0] - outputs[:, 1]) * 50
+    win = torch.sub(
+        torch.mul(torch.mul(odds, bet_amount), correct_pick).sum(), bet_amount.sum()
+    )
     metrics["bet_reward"] += win.item()
+    metrics["avg_bet_amount"] += bet_amount.mean().item()
     # win sum is the sum of all correct picks
     metrics["win_sum"] += correct_pick.sum().item()
     # loss sum is the sum of all incorrect picks
@@ -136,6 +142,7 @@ def print_metrics(metrics, phase_length, wandb, phase):
     wandb.log({f"{phase}_avg_bet_win": metrics["avg_bet_win"] / metrics["win_sum"]})
     wandb.log({f"{phase}_avg_bet_loss": metrics["avg_bet_loss"] / metrics["loss_sum"]})
     wandb.log({f"{phase}_bet_reward": metrics["bet_reward"]})
+    wandb.log({f"{phase}_avg_bet_amount": metrics["avg_bet_amount"] / phase_length})
 
 
 def train_epoch(training: TrainingData) -> Dict[str, float]:
@@ -155,6 +162,7 @@ def train_epoch(training: TrainingData) -> Dict[str, float]:
         "win_sum": 0.0,
         "loss_sum": 0.0,
         "bet_reward": 0.0,
+        "avg_bet_amount": 0.0,
     }
     if training.cfg.model.name == "LSTM":
         training.model.hidden = training.model.init_hidden()
@@ -198,6 +206,7 @@ def val_epoch(training: TrainingData, phase: Phase = Phase.VAL) -> Dict[str, flo
         "win_sum": 0.0,
         "loss_sum": 0.0,
         "bet_reward": 0.0,
+        "avg_bet_amount": 0.0,
     }
     if training.cfg.model.name == "LSTM":
         training.model.hidden = training.model.init_hidden()

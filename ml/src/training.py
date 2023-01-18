@@ -27,9 +27,9 @@ from ml.src.trainingUtils import (
 
 def train():
     with wandb.init(
-            entity="pg-pug-tennis-betting",
-            project="tennis-betting",
-            mode=ConfigStore.cfg.wandb_mode,
+        entity="pg-pug-tennis-betting",
+        project="tennis-betting",
+        mode=ConfigStore.cfg.wandb_mode,
     ) as run:
 
         ConfigStore.handle_wandb(run)
@@ -61,17 +61,25 @@ def train():
             print_metrics(val_metrics, len(dataloaders[Phase.VAL]), wandb, "val")
 
             training.update_best(val_metrics["loss"])
-
+        # load best model
+        training.model.load_state_dict(training.best_model_weights)
         # Make test run
         test_metrics = val_epoch(training, Phase.TEST)
-        print_metrics(test_metrics, len(training.dataloaders[Phase.TEST]), wandb, "Test")
+        print_metrics(
+            test_metrics, len(training.dataloaders[Phase.TEST]), wandb, "Test"
+        )
         # Save model TODO: add better model name and consider using artifact system
         torch.save(model, os.path.join(wandb.run.dir, "model.pt"))
 
 
 def main():
-    parser = argparse.ArgumentParser(prog='Tennis betting')
-    parser.add_argument('--config', type=str, required=True, help='Config file path, absolute or relative to ml/config')
+    parser = argparse.ArgumentParser(prog="Tennis betting")
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=True,
+        help="Config file path, absolute or relative to ml/config",
+    )
     args = parser.parse_args()
 
     ConfigStore.load(args.config)
@@ -83,9 +91,13 @@ def main():
         if ConfigStore.cfg.name is not None and ConfigStore.cfg.name != "":
             sweep_cfg["name"] = ConfigStore.cfg.name
 
-        assert ConfigStore.cfg.wandb_mode == "online", "Sweep only supported in online mode"
+        assert (
+            ConfigStore.cfg.wandb_mode == "online"
+        ), "Sweep only supported in online mode"
 
-        sweep_id = wandb.sweep(sweep_cfg, entity="pg-pug-tennis-betting", project="tennis-betting")
+        sweep_id = wandb.sweep(
+            sweep_cfg, entity="pg-pug-tennis-betting", project="tennis-betting"
+        )
         wandb.agent(sweep_id, train)
 
 

@@ -5,7 +5,7 @@
 # "disabled" to mock the wandb API and not store any data
 wandb_mode: "online"
 
-name: LSTM_test
+name: reward_bet_max_bet
 
 dataset:
   data_path: "${root_path}/data/own/data.csv"
@@ -24,17 +24,17 @@ training:
   loss: "reward"
 
 model:
-  name: LSTM
+  name: ANN
   # n_layers: 3
   n_features: 897
   n_classes: 2
   # hidden_size: 256
-  # dropout: 0.1
+  dropout: 0.5
 
 # https://docs.wandb.ai/guides/sweeps/define-sweep-configuration
 sweep:
   # Max number of runs, if not specified, sweep will run until stopped
-  run_cap: 100
+  run_cap: 10
 
   # early stopping
   # https://docs.wandb.ai/guides/sweeps/define-sweep-configuration#early_terminate
@@ -48,7 +48,7 @@ sweep:
   # grid, random, bayes
   # Random and Bayesian searches will run forever or until the run_cap is reached.
   # Grid searches will run forever if searching in continuous space
-  method: bayes
+  method: random
 
   # required for bayes
   metric:
@@ -62,8 +62,8 @@ sweep:
         parameters:
           lr:
             distribution: uniform
-            min: 0.0001
-            max: 0.5
+            min: 0.000001
+            max: 0.01
 
           patience:
             distribution: int_uniform
@@ -75,7 +75,7 @@ sweep:
           n_layers:
             distribution: int_uniform
             min: 3
-            max: 20
+            max: 14
 
           hidden_size:
-            values: [128, 256, 512, 1024, 2048]
+            values: [128, 256, 512, 1024, 2048, 4096, 8192]

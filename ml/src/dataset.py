@@ -11,9 +11,21 @@ class TennisDataset(Dataset):
     def __init__(self, cfg: Config, phase: Phase = None):
         self.cfg = cfg
         self.data = pd.read_csv(cfg.dataset.data_path)
+        # data = []
+        # # there is pairs of matches in data, so we need to remove one of them, choose one randomly
+        # for i in range( len(self.data)):
+        #     if i % 2 == 0:
+        #         if np.random.randint(2) == 1:
+        #             data.append(i)
+        #         else:
+        #             data.append(i+1)
+
+        # select idx from data
+        # self.data = self.data.iloc[data]
         self.data = self.data.sort_values(
             by=["startDate", "tournamentRound"], ascending=[True, False]
         )
+        # multiply odds by 1.05
         # Train dataset until 2017
         if phase == Phase.TRAIN:
             self.data = self.data[self.data["startDate"] < "2016-01-01"]
@@ -47,7 +59,16 @@ class TennisDataset(Dataset):
     @staticmethod
     def drop_columns(data: pd.DataFrame) -> pd.DataFrame:
         return data.drop(
-            ["winner", "startDate", "player1", "player2", "setsPlayed", "gamesPlayed"],
+            [
+                "winner",
+                "startDate",
+                "player1",
+                "player2",
+                "setsPlayed",
+                "gamesPlayed",
+                "oddsAvg1",
+                "oddsAvg2",
+            ],
             axis=1,
         )
 

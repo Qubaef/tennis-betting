@@ -31,6 +31,7 @@ class LSTMModel(nn.Module):
         self.hidden2out = nn.Linear(hidden_dim, target_size)
 
         self.drop = nn.Dropout(dropout)
+        self.softmax = nn.Softmax(dim=1)
 
     def init_hidden(self):
         # Before we've done anything, we dont have any hidden state.
@@ -52,5 +53,6 @@ class LSTMModel(nn.Module):
         drop_out = self.drop(lstm_out)
 
         pred = self.hidden2out(drop_out)
+        pred = self.softmax(pred)
 
         return pred
